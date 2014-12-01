@@ -52,7 +52,7 @@ function M.Load (view)
 
 	view:insert(Group)
 
-	ShowLayers = checkbox.Checkbox(Group, nil, 175, 100, 40, 40, function(_, check)
+	ShowLayers = checkbox.Checkbox_XY(Group, 175, 100, 40, 40, function(_, check)
 		grid.ShowMultipleLayers(check)
 	end)
 

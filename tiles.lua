@@ -121,7 +121,7 @@ function M.Load (view)
 	end
 
 	TileImages = sheet.NewSpriteSetFromImages(thumbs)
-	CurrentTile = grid1D.OptionsHGrid(view, nil, 150, 50, 200, 100, "Current tile")
+	CurrentTile = grid1D.OptionsHGrid(view, 150, 50, 200, 100, "Current tile")
 
 	--
 	local choices = { "Paint", "Erase" }
