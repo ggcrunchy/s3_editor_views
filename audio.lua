@@ -125,8 +125,9 @@ function M.Load (view)
 	Group = display.newGroup()
 
 	--
-	Songs = audio_patterns.AudioList(Group, w - 350, 100, {
-		path = "Music", base = Base, file_kind = "audio", on_reload = Reload
+	Songs = audio_patterns.AudioList(Group, {
+		x = "from_right_align -50", top = 100,
+		path = "Music", base = Base, on_reload = Reload
 	})
 
 	common_ui.Frame(Songs, 1, 0, 0)
@@ -137,7 +138,9 @@ function M.Load (view)
 	SetCurrent(nil)
 
 	--
-	PlayOrStop = button.Button_XY(Group, w - 410, h - 70, 120, 50, function(bgroup)
+	local bw, bh, y = 120, 50, "from_bottom_align -20"
+
+	PlayOrStop = button.Button_XY(Group, 0, y, bw, bh, function(bgroup)
 		local was_streaming, selection = Stream, Songs:GetSelection()
 
 		CloseStream()
@@ -158,19 +161,20 @@ function M.Load (view)
 	end)
 
 	--
-	local widgets, n = {
-		current = CurrentText, list = Songs, play_or_stop = PlayOrStop
-	}, Group.numChildren
+	local widgets = { current = CurrentText, list = Songs, play_or_stop = PlayOrStop }
 
-	button.Button_XY(Group, w - 280, h - 70, 120, 50, function()
+	widgets.set = button.Button_XY(Group, 0, y, bw, bh, function()
 		SetCurrent(Songs:GetSelection())
 	end, "Set")
 
-	button.Button_XY(Group, w - 150, h - 70, 120, 50, function()
+	widgets.clear = button.Button_XY(Group, 0, y, bw, bh, function()
 		SetCurrent(nil)
 	end, "Clear")
 
-	widgets.set, widgets.clear = Group[n + 1], Group[n + 2]
+	--
+	layout.RightAlignWith(widgets.clear, Songs)
+	layout.PutLeftOf(widgets.set, widgets.clear, "-1%")
+	layout.PutLeftOf(PlayOrStop, widgets.set, "-1%")
 
 	--
 	Group.isVisible = false
