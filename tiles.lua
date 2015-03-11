@@ -33,7 +33,7 @@ local grid = require("s3_editor.Grid")
 local grid1D = require("corona_ui.widgets.grid_1D")
 local grid_views = require("s3_editor.GridViews")
 local help = require("s3_editor.Help")
-local sheet = require("corona_ui.utils.sheet")
+local sheet = require("corona_utils.sheet")
 local strings = require("tektite_core.var.strings")
 
 -- Exports --
