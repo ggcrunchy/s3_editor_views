@@ -105,7 +105,7 @@ function M.Load (view)
 
 		link.x, link.y = x, y
 
-		local text = display.newText(Events, (interface == "event_source" and "Target: " or "Source: ") .. sub, 0, link.y, native.systemFontBold, 20)
+		local text = display.newText((interface == "event_source" and "Target: " or "Source: ") .. sub, 0, link.y, native.systemFontBold, 20)
 
 		text.anchorX, text.x = 0, x + link.width + 5
 
