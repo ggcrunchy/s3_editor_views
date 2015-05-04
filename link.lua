@@ -29,29 +29,87 @@
 -- Search feature? (Based on tag, then on list... essentially what's available now)
 -- Would the above make LinkGroup obsolete? Would it promote the search box?
 
+-- Standard library imports --
+local pairs = pairs
+
+-- Modules --
+local common = require("s3_editor.Common")
+local touch = require("corona_ui.utils.touch")
+
+-- Corona globals --
+local display = display
+
 -- Exports --
 local M = {}
+
+-- --
+local Group
+
+-- --
+local Tagged
 
 ---
 -- @pgroup view X
 function M.Load (view)
+	Group, Tagged = display.newGroup(), {}
 
+	-- Keep a mostly up-to-date list of tagged objects.
+	local links = common.GetLinks()
+
+	links:SetAssignFunc(function(object)
+		Tagged[object] = true
+	end)
+	links:SetRemoveFunc(function(object)
+		Tagged[object] = nil
+	end)
+
+	-- TODO: ^^ Could this be deterministic?
+	-- Cloud of links, etc.
+
+	-- Draggable thing...
+	local box = display.newRect(Group, 0, 0, display.contentWidth, display.contentHeight)
+
+	box:addEventListener("touch", touch.DragParentTouch{ no_clamp = true })
+
+	box.x = display.contentCenterX
+	box.y = display.contentCenterY
+	box.isHitTestable, box.isVisible = true, false
+
+--	local aa = display.newCircle(Group, 20, 60, 35)
+--	local bb = display.newCircle(Group, 300, 200, 20)
+
+	Group.isVisible = false
+
+	view:insert(Group)
 end
 
 ---
 -- @pgroup view X
 function M.Enter (view)
+	-- Cull any dangling objects.
+	for object in pairs(Tagged) do
+		if object.parent then
+			-- add links (do some arbitrage to not duplicate them)
+		else
+			Tagged[object] = nil
+		end
+	end
 
+	--
+
+	Group.isVisible = true
 end
 
 --- DOCMAYBE
 function M.Exit ()
+	-- Tear down link groups
 
+	Group.isVisible = false
 end
 
 --- DOCMAYBE
 function M.Unload ()
-
+	Group, Tagged = nil
 end
 
 -- Export the module.
