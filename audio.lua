@@ -123,7 +123,7 @@ function M.Load (view)
 
 	--
 	Group = display.newGroup()
-
+--[[
 	--
 	Songs = audio_patterns.AudioList(Group, {
 		x = "from_right_align -50", top = 100,
@@ -175,12 +175,12 @@ function M.Load (view)
 	layout.RightAlignWith(widgets.clear, Songs)
 	layout.PutLeftOf(widgets.set, widgets.clear, "-1%")
 	layout.PutLeftOf(PlayOrStop, widgets.set, "-1%")
-
+]]
 	--
 	Group.isVisible = false
 
 	view:insert(Group)
-
+--[[
 	--
 	help.AddHelp("Ambience", widgets)
 	help.AddHelp("Ambience", {
@@ -189,22 +189,23 @@ function M.Load (view)
 		play_or_stop = "If music is playing, stops it. Otherwise, plays the 'current' selection, if available.",
 		set = "Make the selected item in the songs list into the 'current' selection.",
 		clear = "Clear the 'current' selection."
-	})
+	})]]
 end
 
 ---
 -- @pgroup view X
 function M.Enter (view)
+--[[
 	Songs:Init()
 
 	-- Sample music (until switch view or option)
 	-- Background option, sample (scroll views, event block selector)
 	-- Picture option, sample
 	SetText(PlayOrStop[2], "Play")
-
+]]
 	Group.isVisible = true
-
-	help.SetContext("Ambience")
+require("composer").showOverlay("s3_editor.overlay.ChooseAudio", { params = { assign = function(a) print("YEAH!", a) end, mode = "stream" } })
+--	help.SetContext("Ambience")
 end
 
 --- DOCMAYBE

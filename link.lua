@@ -34,6 +34,9 @@ local pairs = pairs
 
 -- Modules --
 local common = require("s3_editor.Common")
+local common_ui = require("s3_editor.CommonUI")
+local help = require("s3_editor.Help")
+local layout = require("corona_ui.utils.layout")
 local touch = require("corona_ui.utils.touch")
 
 -- Corona globals --
@@ -48,10 +51,20 @@ local Group
 -- --
 local Tagged
 
+-- --
+local X, Y = 120, 80
+
 ---
 -- @pgroup view X
 function M.Load (view)
+	--
 	Group, Tagged = display.newGroup(), {}
+
+	view:insert(Group)
+
+	local cont = display.newContainer(display.contentWidth - (X + 10), display.contentHeight - (Y + 10))
+
+	Group:insert(cont)
 
 	-- Keep a mostly up-to-date list of tagged objects.
 	local links = common.GetLinks()
@@ -66,27 +79,46 @@ function M.Load (view)
 	-- TODO: ^^ Could this be deterministic?
 	-- Cloud of links, etc.
 
+	--
+	local group, cw, ch = display.newGroup(), cont.width, cont.height
+
+	cont:insert(group)
+
+	group:translate(-cw / 2, -ch / 2)
+
+--	local aa = display.newCircle(group, 20, 60, 35)
+--	local bb = display.newCircle(group, 300, 200, 20)
+
+	layout.PutRightOf(cont, X, 5)
+	layout.PutBelow(cont, Y, 5)
+
 	-- Draggable thing...
-	local box = display.newRect(Group, 0, 0, display.contentWidth, display.contentHeight)
+	local drag = display.newRect(Group, cont.x, cont.y, cw, ch)
 
-	box:addEventListener("touch", touch.DragParentTouch{ no_clamp = true })
+	drag:addEventListener("touch", touch.DragViewTouch(group))
 
-	box.x = display.contentCenterX
-	box.y = display.contentCenterY
-	box.isHitTestable, box.isVisible = true, false
+	drag.isHitTestable, drag.isVisible = true, false
 
---	local aa = display.newCircle(Group, 20, 60, 35)
---	local bb = display.newCircle(Group, 300, 200, 20)
+	--
+	common_ui.Frame(cont, 1, 0, 1)
 
+	--
 	Group.isVisible = false
 
-	view:insert(Group)
+	help.AddHelp("Link", { cont = cont })
+	help.AddHelp("Link", {
+		cont =  "Drag boxes to move them, or the background to move the world. Links can be established by dragging from an " ..
+				"output node (on the right side) to a linkable input node (left side), or vice versa. Links are broken by " ..
+				"clicking the dot on the line between the nodes. TODO: Far apart nodes"
+	})
 end
 
 ---
 -- @pgroup view X
 function M.Enter (view)
 	-- Cull any dangling objects.
+	local group = Group[1][1]
+
 	for object in pairs(Tagged) do
 		if object.parent then
 			-- add links (do some arbitrage to not duplicate them)
@@ -96,8 +128,9 @@ function M.Enter (view)
 	end
 
 	--
-
 	Group.isVisible = true
+
+	help.SetContext("Link")
 end
 
 --- DOCMAYBE
