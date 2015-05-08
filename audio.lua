@@ -32,13 +32,19 @@
 -- ^^ Wrap up audio stuff from this module into "music" object?
 -- ^^ Then use in game, hook up here in editor to events
 
+-- Standard library imports --
+local remove = table.remove
+local tonumber = tonumber
+
 -- Modules --
-local audio_patterns = require("corona_ui.patterns.audio")
 local button = require("corona_ui.widgets.button")
 local common_ui = require("s3_editor.CommonUI")
 local file = require("corona_utils.file")
 local help = require("s3_editor.Help")
 local layout = require("corona_ui.utils.layout")
+local match_slot_id = require("tektite_core.array.match_slot_id")
+local strings = require("tektite_core.var.strings")
+local table_view_patterns = require("corona_ui.patterns.table_view")
 
 -- Corona globals --
 local audio = audio
@@ -58,57 +64,75 @@ local Group
 -- --
 local PlayOrStop
 
--- --
-local Songs
-
--- --
-local Stream, StreamName
-
 --
-local function CloseStream ()
-	if Stream then
-		audio.stop()
-		audio.dispose(Stream)
-	end
+local function List (str, action, top, r, g, b)
+	local text = display.newText(Group, str, 0, 0, native.systemFont, 24)
+	local using, items = match_slot_id.Wrap{}
+	local list = table_view_patterns.Listbox(Group, {
+		width = "30%", height = "15%",
 
-	Stream, StreamName = nil
+		--
+		get_text = function(item)
+			return item.name
+		end,
+
+		--
+		press = function(event)
+			action("update", using, event.index)
+		end
+	})
+
+	layout.PutRightOf(text, 125)
+	layout.PutBelow(text, top)
+	layout.LeftAlignWith(list, text)
+	layout.PutBelow(list, text)
+	common_ui.Frame(list, r, g, b)
+
+	local new = button.Button_XY(Group, 0, 0, 110, 40, function()
+		-- SetCurrent(Songs:GetSelection())
+		action("new", using, list)
+	end, "New")
+
+	layout.LeftAlignWith(new, list)
+	layout.PutBelow(new, list, 10)
+
+	local delete = button.Button_XY(Group, 0, new.y, new.width, new.height, function()
+		local index = list:Find(list:GetSelection())
+
+		if index then
+			remove(items, index)
+			action("delete", using, list, index)
+		end
+	end, "Delete")
+
+	layout.PutRightOf(delete, new, 10)
+
+	return list, items, layout.Below(new)
 end
 
 --
-local function SetCurrent (what)
-	Current, CurrentText.text = what, "Current music file: " .. (what or "NONE")
+local function GetName (using, prefix)
+	using("begin_generation")
 
-	layout.PutBelow(CurrentText, Songs)
-	layout.RightAlignWith(CurrentText, Songs)
-end
+	local items = using("get_array")
+	local n = #items
 
--- --
-local Base = system.ResourceDirectory
--- ^^ TODO: Add somewhere to pull down remote files... and, uh, support
+	for i = 1, n do
+		local begins, suffix = strings.BeginsWith_AnyCase(items[i].name, prefix, true)
+		local index = begins and tonumber(suffix)
 
-
--- Helper to load or reload the music list
-local function Reload (songs)
-	-- If the stream file was removed while playing, try to close the stream before any
-	-- problems arise.
-	if not songs:Find(StreamName) then
-		CloseStream()
+		if index then
+			using("set", index)
+		end
 	end
 
-	-- Invalidate the current element, if its file was erased. Otherwise, provide it as an
-	-- alternative in case the current selection was erased.
-	local current = songs:Find(Current)
-
-	if not current then
-		SetCurrent(nil)
+	for i = 1, n do
+		if using("check", i) then
+			return prefix .. i
+		end
 	end
 
-	return current
-end
-
---
-local function SetText (button, text)
-	button.parent[2].text = text
+	return prefix .. (n + 1)
 end
 
 ---
@@ -123,42 +147,77 @@ function M.Load (view)
 
 	--
 	Group = display.newGroup()
---[[
+
+	-- music sidebar
+
 	--
-	Songs = audio_patterns.AudioList(Group, {
-		x = "from_right_align -50", top = 100,
-		path = "Music", base = Base, on_reload = Reload
-	})
+	local music_props = display.newGroup()
+	local music_list, music_items, mbot = List("Music tracks", function(what, using, arg1, arg2)
+		local items = using("get_array")
 
-	common_ui.Frame(Songs, 1, 0, 0)
+		if what == "update" then
+			music_props.isVisible = true
 
+			-- Set one by one
+		elseif what == "new" then
+			local music = { name = GetName(using, "Music") }
+
+			items[#items + 1] = music
+
+			arg1:Append(music.name)
+		elseif what == "delete" then
+			music_props.isVisible = #items == 0
+
+			arg1:Delete(arg2)
+		end
+	end, 80, 0, 0, 1)
+
+	-- sound sidebar
+
+	--
+	local sound_props = display.newGroup()
+	local sound_list, sound_items, sbot = List("Sound sources", function(what, using, arg1, arg2)
+		local items = using("get_array")
+
+		if what == "update" then
+			sound_props.isVisible = true
+
+			-- Set one by one
+		elseif what == "new" then
+			local sound = { name = GetName(using, "Sound") }
+
+			items[#items + 1] = sound
+
+			arg1:Append(sound.name)
+		elseif what == "delete" then
+			sound_props.isVisible = #items == 0
+
+			arg1:Delete(arg2)
+		end
+	end, mbot + 15, 0, 1, 0)
+
+
+	-- Two listboxes:
+		-- Sounds
+			-- Name
+			-- Filename
+			-- Panning, volume, etc.?
+		-- Music (tracks?)
+			-- Name
+			-- Filename
+			-- What else?
+		-- On selection, populate property list to side? (Alternatively, dialog box)
+		-- Have button to call up ChooseAudio dialog for each (pass in current selection, if any?)
+	-- "Global" state:
+		-- On enter level: play track (with "default" checked, or lone track); nothing
+		-- On reset level: play enter track; reset current track; stop current track; nothing (what about sounds?)
+		-- ^^^ These just hook up global events; for finer control, do manually
+--[[
 	--
 	CurrentText = display.newText(Group, "", 0, 0, native.systemFont, 24)
 
 	SetCurrent(nil)
 
-	--
-	local bw, bh, y = 120, 50, "from_bottom_align -20"
-
-	PlayOrStop = button.Button_XY(Group, 0, y, bw, bh, function(bgroup)
-		local was_streaming, selection = Stream, Songs:GetSelection()
-
-		CloseStream()
-
-		if was_streaming then
-			SetText(bgroup, "Play")
-		elseif selection then
-			Stream = audio.loadStream("Music/" .. selection)
-
-			if Stream then
-				StreamName = selection
-
-				audio.play(Stream, { fadein = 1500, loops = -1 })
-
-				SetText(bgroup, "Stop")
-			end
-		end
-	end)
 
 	--
 	local widgets = { current = CurrentText, list = Songs, play_or_stop = PlayOrStop }
@@ -170,11 +229,6 @@ function M.Load (view)
 	widgets.clear = button.Button_XY(Group, 0, y, bw, bh, function()
 		SetCurrent(nil)
 	end, "Clear")
-
-	--
-	layout.RightAlignWith(widgets.clear, Songs)
-	layout.PutLeftOf(widgets.set, widgets.clear, "-1%")
-	layout.PutLeftOf(PlayOrStop, widgets.set, "-1%")
 ]]
 	--
 	Group.isVisible = false
@@ -196,8 +250,6 @@ end
 -- @pgroup view X
 function M.Enter (view)
 --[[
-	Songs:Init()
-
 	-- Sample music (until switch view or option)
 	-- Background option, sample (scroll views, event block selector)
 	-- Picture option, sample
@@ -210,16 +262,12 @@ end
 
 --- DOCMAYBE
 function M.Exit ()
-	CloseStream()
-
 	Group.isVisible = false
 end
 
 --- DOCMAYBE
 function M.Unload ()
-	Songs:removeSelf()
-
-	Current, CurrentText, Group, PlayOrStop, Songs = nil
+	Current, CurrentText, Group, PlayOrStop, Using = nil
 end
 
 -- Listen to events.
