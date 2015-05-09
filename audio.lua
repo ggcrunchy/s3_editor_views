@@ -72,11 +72,6 @@ local function List (str, action, top, r, g, b)
 		width = "30%", height = "15%",
 
 		--
-		get_text = function(item)
-			return item.name
-		end,
-
-		--
 		press = function(event)
 			action("update", using, event.index)
 		end
@@ -122,12 +117,12 @@ local function GetName (using, prefix)
 		local index = begins and tonumber(suffix)
 
 		if index then
-			using("set", index)
+			using("mark", index)
 		end
 	end
 
 	for i = 1, n do
-		if using("check", i) then
+		if not using("check", i) then
 			return prefix .. i
 		end
 	end
