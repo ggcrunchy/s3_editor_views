@@ -38,8 +38,10 @@ local tonumber = tonumber
 
 -- Modules --
 local button = require("corona_ui.widgets.button")
+local checkbox = require("corona_ui.widgets.checkbox")
+local common = require("s3_editor.Common")
 local common_ui = require("s3_editor.CommonUI")
-local file = require("corona_utils.file")
+local editable = require("corona_ui.patterns.editable")
 local help = require("s3_editor.Help")
 local layout = require("corona_ui.utils.layout")
 local match_slot_id = require("tektite_core.array.match_slot_id")
@@ -47,22 +49,17 @@ local strings = require("tektite_core.var.strings")
 local table_view_patterns = require("corona_ui.patterns.table_view")
 
 -- Corona globals --
-local audio = audio
 local display = display
 local native = native
-local system = system
+
+-- Corona modules --
+local composer = require("composer")
 
 -- Exports --
 local M = {}
 
 -- --
-local Current, CurrentText
-
--- --
 local Group
-
--- --
-local PlayOrStop
 
 --
 local function List (str, action, top, r, g, b)
@@ -84,7 +81,6 @@ local function List (str, action, top, r, g, b)
 	common_ui.Frame(list, r, g, b)
 
 	local new = button.Button_XY(Group, 0, 0, 110, 40, function()
-		-- SetCurrent(Songs:GetSelection())
 		action("new", using, list)
 	end, "New")
 
@@ -92,7 +88,7 @@ local function List (str, action, top, r, g, b)
 	layout.PutBelow(new, list, 10)
 
 	local delete = button.Button_XY(Group, 0, new.y, new.width, new.height, function()
-		local index = list:Find(list:GetSelection())
+		local index = list:FindSelection()
 
 		if index then
 			remove(items, index)
@@ -130,129 +126,157 @@ local function GetName (using, prefix)
 	return prefix .. (n + 1)
 end
 
+--
+local function AddListbox (listbox_str, choose_str, mode, new, y, r, g, b)
+	local props, params = display.newGroup(), { mode = mode }
+	local name = editable.Editable(props)
+	local filename = button.Button(props, 240, 40, function()
+		composer.showOverlay("s3_editor.overlay.ChooseAudio", { params = params })
+	end, choose_str)
+
+	local list, items, bottom = List(listbox_str, function(what, using, arg1, arg2)
+		local items = using("get_array")
+
+		if what == "update" then
+			props.isVisible = true
+
+			name:SetText(items[arg1].name)
+		elseif what == "new" then
+			local item = {}
+
+			new(item, using)
+
+			items[#items + 1] = item
+
+			arg1:Append(item.name)
+		elseif what == "delete" then
+			props.isVisible = #items > 0
+
+			arg1:Delete(arg2)
+		end
+
+		if what ~= "update" then
+			common.Dirty()
+		end
+	end, y, r, g, b)
+
+	name:addEventListener("closing", function(event)
+		local old_text = list:GetSelection()
+		local index = list:Find(old_text)
+
+		if index and event.closed_by_key then
+			local str = event.target:GetString().text
+
+			items[index].name = str
+
+			list:Update(index, str)
+
+			common.Dirty()
+		else
+			event.target:SetText(old_text)
+		end
+	end)
+
+	function params.assign (name)
+		local index = list:FindSelection()
+
+		if index then
+			items[index].filename = name
+
+			common.Dirty()
+		end
+	end
+
+	layout.PutRightOf(name, list, 10)
+	layout.TopAlignWith(name, list)
+	layout.LeftAlignWith(filename, name)
+	layout.PutBelow(filename, name, 10)
+
+	props.isVisible = false
+
+	Group:insert(props)
+
+	return list, bottom
+end
+
 ---
 -- @pgroup view X
 function M.Load (view)
-	local w, h = display.contentWidth, display.contentHeight
-
-	--
-	if system.getInfo("environment") == "device" then
-		file.AddDirectory("Music", system.DocumentsDirectory)
-	end
-
 	--
 	Group = display.newGroup()
 
 	-- music sidebar
-
-	--
-	local music_props = display.newGroup()
-	local music_list, music_items, mbot = List("Music tracks", function(what, using, arg1, arg2)
-		local items = using("get_array")
-
-		if what == "update" then
-			music_props.isVisible = true
-
-			-- Set one by one
-		elseif what == "new" then
-			local music = { name = GetName(using, "Music") }
-
-			items[#items + 1] = music
-
-			arg1:Append(music.name)
-		elseif what == "delete" then
-			music_props.isVisible = #items == 0
-
-			arg1:Delete(arg2)
-		end
+	local music_list, mbot = AddListbox("Music tracks", "Choose track", "stream", function(item, using)
+		item.name = GetName(using, "Music")
 	end, 80, 0, 0, 1)
-
-	-- sound sidebar
-
-	--
-	local sound_props = display.newGroup()
-	local sound_list, sound_items, sbot = List("Sound sources", function(what, using, arg1, arg2)
-		local items = using("get_array")
-
-		if what == "update" then
-			sound_props.isVisible = true
-
-			-- Set one by one
-		elseif what == "new" then
-			local sound = { name = GetName(using, "Sound") }
-
-			items[#items + 1] = sound
-
-			arg1:Append(sound.name)
-		elseif what == "delete" then
-			sound_props.isVisible = #items == 0
-
-			arg1:Delete(arg2)
-		end
+	local sound_list, sbot  = AddListbox("Sound samples", "Choose sample", "souond", function(item, using)
+		item.name = GetName(using, "Sound")
 	end, mbot + 15, 0, 1, 0)
 
-
-	-- Two listboxes:
-		-- Sounds
-			-- Name
-			-- Filename
-			-- Panning, volume, etc.?
-		-- Music (tracks?)
-			-- Name
-			-- Filename
-			-- What else?
-		-- On selection, populate property list to side? (Alternatively, dialog box)
-		-- Have button to call up ChooseAudio dialog for each (pass in current selection, if any?)
 	-- "Global" state:
 		-- On enter level: play track (with "default" checked, or lone track); nothing
 		-- On reset level: play enter track; reset current track; stop current track; nothing (what about sounds?)
 		-- ^^^ These just hook up global events; for finer control, do manually
---[[
-	--
-	CurrentText = display.newText(Group, "", 0, 0, native.systemFont, 24)
-
-	SetCurrent(nil)
-
 
 	--
-	local widgets = { current = CurrentText, list = Songs, play_or_stop = PlayOrStop }
+	local enter = checkbox.Checkbox(Group, 40, 40)
 
-	widgets.set = button.Button_XY(Group, 0, y, bw, bh, function()
-		SetCurrent(Songs:GetSelection())
-	end, "Set")
+	enter:Check(true)
 
-	widgets.clear = button.Button_XY(Group, 0, y, bw, bh, function()
-		SetCurrent(nil)
-	end, "Clear")
-]]
+	layout.PutBelow(enter, sbot, 10)
+	layout.LeftAlignWith(enter, sound_list)
+
+	local enter_str = display.newText(Group, "Play on enter?", 0, enter.y, native.systemFontBold, 22)
+
+	layout.PutRightOf(enter_str, enter, 5)
+
+	local play_on_enter = editable.Editable_XY(Group, 0, enter.y)
+
+	layout.PutRightOf(play_on_enter, enter_str, 5)
+
+	local reset = checkbox.Checkbox_XY(Group, 0, enter.y, 40, 40)
+
+	reset:Check(true)
+
+	layout.PutRightOf(reset, play_on_enter, 5)
+
+	local reset_str = display.newText(Group, "Reset track?", 0, enter.y, native.systemFontBold, 22)
+
+	layout.PutRightOf(reset_str, reset, 5)
+
+	local play_on_reset = editable.Editable_XY(Group, 0, enter.y)
+
+	layout.PutRightOf(play_on_reset, reset_str, 5)
+
 	--
 	Group.isVisible = false
 
 	view:insert(Group)
---[[
+
 	--
-	help.AddHelp("Ambience", widgets)
-	help.AddHelp("Ambience", {
-		current = "What is the 'current' selection?",
-		list = "A list of available songs.",
-		play_or_stop = "If music is playing, stops it. Otherwise, plays the 'current' selection, if available.",
-		set = "Make the selected item in the songs list into the 'current' selection.",
-		clear = "Clear the 'current' selection."
-	})]]
+	help.AddHelp("Audio", {
+		music = music_list, sound = sound_list,
+		enter = enter, play_on_enter = play_on_enter,
+		reset = reset, play_on_reset = play_on_reset
+	})
+	help.AddHelp("Audio", {
+		music = "Add or remove music tracks.",
+		sound = "Add or remove sound samples.",
+		enter = "Should music play as soon as the level is entered?",
+		play_on_enter = "If music should play when entering the level, the name of the track to play. " ..
+						"(This is optional when there is only one track.)",
+		reset = "When the level is reset, should a new track play?",
+		play_on_reset = "If new music should play when the level is reset, the name of the track to " ..
+						"play. (If absent, the level-entering track is used.)"
+	})
 end
 
 ---
 -- @pgroup view X
 function M.Enter (view)
---[[
-	-- Sample music (until switch view or option)
-	-- Background option, sample (scroll views, event block selector)
-	-- Picture option, sample
-	SetText(PlayOrStop[2], "Play")
-]]
 	Group.isVisible = true
-require("composer").showOverlay("s3_editor.overlay.ChooseAudio", { params = { assign = function(a) print("YEAH!", a) end, mode = "stream" } })
---	help.SetContext("Ambience")
+
+	help.SetContext("Audio")
 end
 
 --- DOCMAYBE
@@ -262,7 +286,7 @@ end
 
 --- DOCMAYBE
 function M.Unload ()
-	Current, CurrentText, Group, PlayOrStop, Using = nil
+	Group = nil
 end
 
 -- Listen to events.
@@ -276,12 +300,12 @@ for k, v in pairs{
 	load_level_wip = function(level)
 		level.ambience.version = nil
 
-		SetCurrent(level.ambience.music)
+	--	SetCurrent(level.ambience.music)
 	end,
 
 	-- Save Level WIP --
 	save_level_wip = function(level)
-		level.ambience = { version = 1, music = Current }
+	--	level.ambience = { version = 1, music = Current }
 
 		-- Secondary scores?
 		-- Persist on level reset?
