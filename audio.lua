@@ -41,10 +41,13 @@ local button = require("corona_ui.widgets.button")
 local checkbox = require("corona_ui.widgets.checkbox")
 local common = require("s3_editor.Common")
 local common_ui = require("s3_editor.CommonUI")
+local dialog = require("s3_editor.Dialog")
 local editable = require("corona_ui.patterns.editable")
 local help = require("s3_editor.Help")
 local layout = require("corona_ui.utils.layout")
 local match_slot_id = require("tektite_core.array.match_slot_id")
+local music = require("s3_utils.music")
+local sound = require("s3_utils.sound")
 local strings = require("tektite_core.var.strings")
 local table_view_patterns = require("corona_ui.patterns.table_view")
 
@@ -57,6 +60,10 @@ local composer = require("composer")
 
 -- Exports --
 local M = {}
+
+-- --
+local MusicDialog = dialog.DialogWrapper(music.EditorEvent)
+local SoundDialog = dialog.DialogWrapper(sound.EditorEvent)
 
 -- --
 local Group
@@ -294,6 +301,19 @@ for k, v in pairs{
 	-- Build Level --
 	build_level = function(level)
 		-- ??
+--[[
+		local builds
+
+		for k, sp in pairs(level.enemies.entries) do
+			sp.col, sp.row = strings.KeyToPair(k)
+
+			builds = events.BuildEntry(level, enemies, sp, builds)
+		end
+
+		level.enemies = builds
+]]
+-- 		level.global_events = events.BuildEntry(level, global_events, level.global_events, nil)[1]
+-- Probably, do two of the first sort of thing
 	end,
 
 	-- Load Level WIP --
@@ -301,24 +321,166 @@ for k, v in pairs{
 		level.ambience.version = nil
 
 	--	SetCurrent(level.ambience.music)
+--		events.LoadGroupOfValues_Grid(level, "enemies", enemies, GridView)
+-- 		events.LoadValuesFromEntry(level, global_events, Global, level.global_events)
+-- Probably need new "load group of values" variant
 	end,
 
 	-- Save Level WIP --
 	save_level_wip = function(level)
 	--	level.ambience = { version = 1, music = Current }
-
+--		events.SaveGroupOfValues(level, "enemies", enemies, GridView)
+--		level.global_events = events.SaveValuesIntoEntry(level, global_events, Global, { version = 1 })
 		-- Secondary scores?
 		-- Persist on level reset?
+-- Will work?
 	end,
 
 	-- Verify Level WIP --
 	verify_level_wip = function(verify)
 		-- Ensure music exists?
 		-- Could STILL fail later... :(
+--[[
+		if verify.pass == 1 then
+			events.CheckNamesInValues("spawn point", verify, GridView)
+		end
+
+		events.VerifyValues(verify, enemies, GridView)
+]]
+-- two checks?
 	end
 } do
 	Runtime:addEventListener(k, v)
 end
+
+--[[
+local function ListView (dialog_wrapper, vtype)
+	local option, tabs, tiles, try_option, tile_images, values
+
+	--
+	local function Cell (event)
+		local key = strings.PairToKey(event.col, event.row)
+		local cur, tile = values[key], tiles[key]
+
+		--
+		if option == "Edit" then
+			if cur then
+				dialog_wrapper("edit", cur, tabs.parent, key, tile)
+			else
+				dialog_wrapper("close")
+			end
+			-- ^^ Should only work on item?
+
+		--
+		elseif option == "Erase" then
+			if tile then
+				tile:removeSelf() -- "tile" = listbox item
+
+				common.BindRepAndValues(tile, nil)
+				common.Dirty()
+			end
+
+			values[key], tiles[key] = nil
+			-- ^^ Adapt to listbox
+
+		--
+		elseif not same(tile, which, cur) then
+			if tile then
+				common.GetLinks():RemoveTag(tile)
+			end
+			-- ^^^ Listbox item
+
+			values[key] = dialog_wrapper("new_values", vtype, key)
+			tiles[key] = update(canvas, tile, event.x, event.y, cw, ch, tile_images, which)
+			-- ^^ Should just put it in the listbox
+
+			--
+			local tag = dialog_wrapper("get_tag", vtype)
+
+			if tag then
+				common.BindRepAndValues(tiles[key], values[key])
+				common.GetLinks():SetTag(tiles[key], tag)
+			end
+
+			common.Dirty()
+		end
+		-- ^^^ These are buttons, not tabs
+	end
+
+	--
+	local function ShowHide (event)
+		local key = strings.PairToKey(event.col, event.row)
+
+		if values[key] then
+			tiles[key].isVisible = event.show
+		end
+	end
+	-- ^^ Irrelevant?
+
+	--
+	local EditEraseGridView = {}
+
+	--- DOCME
+	function EditEraseGridView:Enter ()
+		try_option(tabs, option)
+	end
+
+	--- DOCME
+	function EditEraseGridView:Exit ()
+		dialog_wrapper("close")
+
+		grid.SetChoice(option)
+	end
+
+	--- DOCME
+	function EditEraseGridView:GetTiles ()
+		return tiles
+	end
+
+	--- DOCME
+	function EditEraseGridView:GetValues ()
+		return values
+	end
+
+	--- DOCME
+	function EditEraseGridView:Load (group, prefix, title)
+		values, tiles, cells = {}, {}, grid.NewGrid()
+
+		cells:addEventListener("cell", Cell)
+		cells:addEventListener("show", ShowHide)
+
+		--
+		local choices = { "Paint", "Edit", "Erase" }
+
+		tabs = M.AddTabs(group, choices, function(label)
+			return function()
+				option = label
+
+				if label ~= "Edit" then
+					dialog_wrapper("close")
+				end
+
+				return true
+			end
+		end, 300)
+
+		--
+		try_option = grid.ChoiceTrier(choices)
+		-- ^^^ Mostly irrelevant
+
+		--
+		help.AddHelp(prefix, { current = current, tabs = tabs })
+	end
+
+	--- DOCME
+	function EditEraseGridView:Unload ()
+		tabs:removeSelf()
+
+		option, tile_images, try_option, values = nil
+	end
+
+	return EditEraseGridView
+]]
 
 -- Export the module.
 return M
