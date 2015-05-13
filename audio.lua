@@ -32,176 +32,45 @@
 -- ^^ Wrap up audio stuff from this module into "music" object?
 -- ^^ Then use in game, hook up here in editor to events
 
--- Standard library imports --
-local remove = table.remove
-local tonumber = tonumber
-
 -- Modules --
-local button = require("corona_ui.widgets.button")
 local checkbox = require("corona_ui.widgets.checkbox")
-local common = require("s3_editor.Common")
 local common_ui = require("s3_editor.CommonUI")
 local dialog = require("s3_editor.Dialog")
 local editable = require("corona_ui.patterns.editable")
 local help = require("s3_editor.Help")
 local layout = require("corona_ui.utils.layout")
-local match_slot_id = require("tektite_core.array.match_slot_id")
+local list_views = require("s3_editor.ListViews")
 local music = require("s3_utils.music")
 local sound = require("s3_utils.sound")
-local strings = require("tektite_core.var.strings")
-local table_view_patterns = require("corona_ui.patterns.table_view")
 
 -- Corona globals --
 local display = display
 local native = native
 
--- Corona modules --
-local composer = require("composer")
-
 -- Exports --
 local M = {}
+
+-- --
+local Group
 
 -- --
 local MusicDialog = dialog.DialogWrapper(music.EditorEvent)
 local SoundDialog = dialog.DialogWrapper(sound.EditorEvent)
 
 -- --
-local Group
+local MusicView = list_views.EditErase(MusicDialog, "music")
+local SoundView = list_views.EditErase(SoundDialog, "sound")
 
 --
-local function List (str, action, top, r, g, b)
+local function List (str, view, prefix, top, r, g, b)
 	local text = display.newText(Group, str, 0, 0, native.systemFont, 24)
-	local using, items = match_slot_id.Wrap{}
-	local list = table_view_patterns.Listbox(Group, {
-		width = "30%", height = "15%",
-
-		--
-		press = function(event)
-			action("update", using, event.index)
-		end
-	})
 
 	layout.PutRightOf(text, 125)
 	layout.PutBelow(text, top)
-	layout.LeftAlignWith(list, text)
-	layout.PutBelow(list, text)
+
+	local list, bottom = view:Load(Group, prefix, layout.Below(text), layout.LeftOf(text))
+
 	common_ui.Frame(list, r, g, b)
-
-	local new = button.Button_XY(Group, 0, 0, 110, 40, function()
-		action("new", using, list)
-	end, "New")
-
-	layout.LeftAlignWith(new, list)
-	layout.PutBelow(new, list, 10)
-
-	local delete = button.Button_XY(Group, 0, new.y, new.width, new.height, function()
-		local index = list:FindSelection()
-
-		if index then
-			remove(items, index)
-			action("delete", using, list, index)
-		end
-	end, "Delete")
-
-	layout.PutRightOf(delete, new, 10)
-
-	return list, items, layout.Below(new)
-end
-
---
-local function GetName (using, prefix)
-	using("begin_generation")
-
-	local items = using("get_array")
-	local n = #items
-
-	for i = 1, n do
-		local begins, suffix = strings.BeginsWith_AnyCase(items[i].name, prefix, true)
-		local index = begins and tonumber(suffix)
-
-		if index then
-			using("mark", index)
-		end
-	end
-
-	for i = 1, n do
-		if not using("check", i) then
-			return prefix .. i
-		end
-	end
-
-	return prefix .. (n + 1)
-end
-
---
-local function AddListbox (listbox_str, choose_str, mode, new, y, r, g, b)
-	local props, params = display.newGroup(), { mode = mode }
-	local name = editable.Editable(props)
-	local filename = button.Button(props, 240, 40, function()
-		composer.showOverlay("s3_editor.overlay.ChooseAudio", { params = params })
-	end, choose_str)
-
-	local list, items, bottom = List(listbox_str, function(what, using, arg1, arg2)
-		local items = using("get_array")
-
-		if what == "update" then
-			props.isVisible = true
-
-			name:SetText(items[arg1].name)
-		elseif what == "new" then
-			local item = {}
-
-			new(item, using)
-
-			items[#items + 1] = item
-
-			arg1:Append(item.name)
-		elseif what == "delete" then
-			props.isVisible = #items > 0
-
-			arg1:Delete(arg2)
-		end
-
-		if what ~= "update" then
-			common.Dirty()
-		end
-	end, y, r, g, b)
-
-	name:addEventListener("closing", function(event)
-		local old_text = list:GetSelection()
-		local index = list:Find(old_text)
-
-		if index and event.closed_by_key then
-			local str = event.target:GetString().text
-
-			items[index].name = str
-
-			list:Update(index, str)
-
-			common.Dirty()
-		else
-			event.target:SetText(old_text)
-		end
-	end)
-
-	function params.assign (name)
-		local index = list:FindSelection()
-
-		if index then
-			items[index].filename = name
-
-			common.Dirty()
-		end
-	end
-
-	layout.PutRightOf(name, list, 10)
-	layout.TopAlignWith(name, list)
-	layout.LeftAlignWith(filename, name)
-	layout.PutBelow(filename, name, 10)
-
-	props.isVisible = false
-
-	Group:insert(props)
 
 	return list, bottom
 end
@@ -212,18 +81,9 @@ function M.Load (view)
 	--
 	Group = display.newGroup()
 
-	-- music sidebar
-	local music_list, mbot = AddListbox("Music tracks", "Choose track", "stream", function(item, using)
-		item.name = GetName(using, "Music")
-	end, 80, 0, 0, 1)
-	local sound_list, sbot  = AddListbox("Sound samples", "Choose sample", "souond", function(item, using)
-		item.name = GetName(using, "Sound")
-	end, mbot + 15, 0, 1, 0)
-
-	-- "Global" state:
-		-- On enter level: play track (with "default" checked, or lone track); nothing
-		-- On reset level: play enter track; reset current track; stop current track; nothing (what about sounds?)
-		-- ^^^ These just hook up global events; for finer control, do manually
+	--
+	local music_list, mbot = List("Music tracks", "Choose track", "music", "stream", MusicView, 80, 0, 0, 1)
+	local sound_list, sbot = List("Sound samples", "Choose sample", "sound", "sound", SoundView, mbot + 15, 0, 1, 0)
 
 	--
 	local enter = checkbox.Checkbox(Group, 40, 40)
@@ -245,7 +105,7 @@ function M.Load (view)
 
 	reset:Check(true)
 
-	layout.PutRightOf(reset, play_on_enter, 5)
+	layout.PutRightOf(reset, play_on_enter, 15)
 
 	local reset_str = display.newText(Group, "Reset track?", 0, enter.y, native.systemFontBold, 22)
 
@@ -283,16 +143,25 @@ end
 function M.Enter (view)
 	Group.isVisible = true
 
+	MusicView:Enter(view)
+	SoundView:Enter(view)
+
 	help.SetContext("Audio")
 end
 
 --- DOCMAYBE
 function M.Exit ()
+	MusicView:Exit()
+	SoundView:Exit()
+
 	Group.isVisible = false
 end
 
 --- DOCMAYBE
 function M.Unload ()
+	MusicView:Unload()
+	SoundView:Unload()
+
 	Group = nil
 end
 
