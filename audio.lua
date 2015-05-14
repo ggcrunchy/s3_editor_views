@@ -62,7 +62,7 @@ local MusicView = list_views.EditErase(MusicDialog, "music")
 local SoundView = list_views.EditErase(SoundDialog, "sound")
 
 --
-local function List (str, view, prefix, top, r, g, b)
+local function List (str, prefix, view, top, r, g, b)
 	local text = display.newText(Group, str, 0, 0, native.systemFont, 24)
 
 	layout.PutRightOf(text, 125)
@@ -82,8 +82,8 @@ function M.Load (view)
 	Group = display.newGroup()
 
 	--
-	local music_list, mbot = List("Music tracks", "Choose track", "music", "stream", MusicView, 80, 0, 0, 1)
-	local sound_list, sbot = List("Sound samples", "Choose sample", "sound", "sound", SoundView, mbot + 15, 0, 1, 0)
+	local music_list, mbot = List("Music tracks", "music", MusicView, 80, 0, 0, 1)
+	local sound_list, sbot = List("Sound samples", "sound", SoundView, mbot + 15, 0, 1, 0)
 
 	--
 	local enter = checkbox.Checkbox(Group, 40, 40)
