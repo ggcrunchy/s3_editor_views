@@ -32,11 +32,15 @@
 -- ^^ Wrap up audio stuff from this module into "music" object?
 -- ^^ Then use in game, hook up here in editor to events
 
+-- Standard library imports --
+local pairs = pairs
+
 -- Modules --
 local checkbox = require("corona_ui.widgets.checkbox")
 local common_ui = require("s3_editor.CommonUI")
 local dialog = require("s3_editor.Dialog")
 local editable = require("corona_ui.patterns.editable")
+local events = require("s3_editor.Events")
 local help = require("s3_editor.Help")
 local layout = require("corona_ui.utils.layout")
 local list_views = require("s3_editor.ListViews")
@@ -75,6 +79,13 @@ local function List (str, prefix, view, top, r, g, b)
 	return list, bottom
 end
 
+-- --
+local Enter, Reset
+
+-- --
+local PlayOnEnter, PlayOnReset
+-- ^^^ TODO: Maybe these names are backward, intuition-wise
+
 ---
 -- @pgroup view X
 function M.Load (view)
@@ -86,34 +97,34 @@ function M.Load (view)
 	local sound_list, sbot = List("Sound samples", "sound", SoundView, mbot + 15, 0, 1, 0)
 
 	--
-	local enter = checkbox.Checkbox(Group, 40, 40)
+	Enter = checkbox.Checkbox(Group, 40, 40)
 
-	enter:Check(true)
+	Enter:Check(true)
 
-	layout.PutBelow(enter, sbot, 10)
-	layout.LeftAlignWith(enter, sound_list)
+	layout.PutBelow(Enter, sbot, 10)
+	layout.LeftAlignWith(Enter, sound_list)
 
-	local enter_str = display.newText(Group, "Play on enter?", 0, enter.y, native.systemFontBold, 22)
+	local enter_str = display.newText(Group, "Play on enter?", 0, Enter.y, native.systemFontBold, 22)
 
-	layout.PutRightOf(enter_str, enter, 5)
+	layout.PutRightOf(enter_str, Enter, 5)
 
-	local play_on_enter = editable.Editable_XY(Group, 0, enter.y)
+	PlayOnEnter = editable.Editable_XY(Group, 0, Enter.y)
 
-	layout.PutRightOf(play_on_enter, enter_str, 5)
+	layout.PutRightOf(PlayOnEnter, enter_str, 5)
 
-	local reset = checkbox.Checkbox_XY(Group, 0, enter.y, 40, 40)
+	Reset = checkbox.Checkbox_XY(Group, 0, Enter.y, 40, 40)
 
-	reset:Check(true)
+	Reset:Check(true)
 
-	layout.PutRightOf(reset, play_on_enter, 15)
+	layout.PutRightOf(Reset, PlayOnEnter, 15)
 
-	local reset_str = display.newText(Group, "Reset track?", 0, enter.y, native.systemFontBold, 22)
+	local reset_str = display.newText(Group, "Reset track?", 0, Enter.y, native.systemFontBold, 22)
 
-	layout.PutRightOf(reset_str, reset, 5)
+	layout.PutRightOf(reset_str, Reset, 5)
 
-	local play_on_reset = editable.Editable_XY(Group, 0, enter.y)
+	PlayOnReset = editable.Editable_XY(Group, 0, Enter.y)
 
-	layout.PutRightOf(play_on_reset, reset_str, 5)
+	layout.PutRightOf(PlayOnReset, reset_str, 5)
 
 	--
 	Group.isVisible = false
@@ -123,8 +134,8 @@ function M.Load (view)
 	--
 	help.AddHelp("Audio", {
 		music = music_list, sound = sound_list,
-		enter = enter, play_on_enter = play_on_enter,
-		reset = reset, play_on_reset = play_on_reset
+		enter = Enter, play_on_enter = PlayOnEnter,
+		reset = Reset, play_on_reset = PlayOnReset
 	})
 	help.AddHelp("Audio", {
 		music = "Add or remove music tracks.",
@@ -162,61 +173,110 @@ function M.Unload ()
 	MusicView:Unload()
 	SoundView:Unload()
 
-	Group = nil
+	Enter, Group, PlayOnEnter, PlayOnReset, Reset = nil
+end
+
+--
+local function CheckNameIntegrity (verify, list, editable, what)
+	local n, name = list:GetCount(), editable:GetString().text
+
+	if n == 0 then
+		verify[#verify + 1] = ("No music available for `%s` to reference"):format(what)
+	elseif name ~= "" then
+		for i = 1, n do
+			if list:GetData(i).filename == name then
+				return
+			end
+		end
+
+		verify[#verify + 1] = ("No music with filename `%s` available to associate with `%s`"):format(name, what)
+	elseif n > 1 then
+		verify[#verify + 1] = ("Multiple pieces of music to associate with `%s`, but none specified"):format(what)
+	end
+end
+
+--
+local function AddFlag (music, name, flag)
+	if name and music then
+		local index = 1
+
+		if name ~= "" then
+			while music[index].filename ~= name do
+				index = index + 1
+			end
+		end
+
+		music[index][flag] = true
+	end
 end
 
 -- Listen to events.
 for k, v in pairs{
 	-- Build Level --
 	build_level = function(level)
-		-- ??
---[[
-		local builds
+		--
+		local state, music_builds, sound_builds = level.music_state
 
-		for k, sp in pairs(level.enemies.entries) do
-			sp.col, sp.row = strings.KeyToPair(k)
-
-			builds = events.BuildEntry(level, enemies, sp, builds)
+		for _, mentry in pairs(level.music.entries) do
+			music_builds = events.BuildEntry(level, music, mentry, music_builds)
 		end
 
-		level.enemies = builds
-]]
--- 		level.global_events = events.BuildEntry(level, global_events, level.global_events, nil)[1]
--- Probably, do two of the first sort of thing
+		for _, sentry in pairs(level.sound.entries) do
+			sound_builds = events.BuildEntry(level, sound, sentry, sound_builds)
+		end
+
+		level.music, level.sound, level.music_state = music_builds, sound_builds
+
+		--
+		AddFlag(music_builds, state.enter and state.play_on_enter, "play_on_enter")
+		AddFlag(music_builds, state.leave and state.play_on_leave, "play_on_leave")
 	end,
 
 	-- Load Level WIP --
 	load_level_wip = function(level)
-		level.ambience.version = nil
+		events.LoadGroupOfValues_List(level, "music", music, MusicView)
+		events.LoadGroupOfValues_List(level, "sound", sound, SoundView)
 
-	--	SetCurrent(level.ambience.music)
---		events.LoadGroupOfValues_Grid(level, "enemies", enemies, GridView)
--- 		events.LoadValuesFromEntry(level, global_events, Global, level.global_events)
--- Probably need new "load group of values" variant
+		local state = level.music_state
+
+		Enter:Check(state.enter)
+		Reset:Check(state.reset)
+
+		PlayOnEnter:SetText(state.play_on_enter)
+		PlayOnReset:SetText(state.play_on_reset)
 	end,
 
 	-- Save Level WIP --
 	save_level_wip = function(level)
-	--	level.ambience = { version = 1, music = Current }
---		events.SaveGroupOfValues(level, "enemies", enemies, GridView)
---		level.global_events = events.SaveValuesIntoEntry(level, global_events, Global, { version = 1 })
-		-- Secondary scores?
-		-- Persist on level reset?
--- Will work?
+		events.SaveGroupOfValues(level, "music", music, MusicView)
+		events.SaveGroupOfValues(level, "sound", sound, SoundView)
+
+		level.music_state = {
+			enter = Enter:IsChecked(), play_on_enter = PlayOnEnter:GetString().text,
+			reset = Reset:IsChecked(), play_on_reset = PlayOnReset:GetString().text
+		}
 	end,
 
 	-- Verify Level WIP --
 	verify_level_wip = function(verify)
-		-- Ensure music exists?
-		-- Could STILL fail later... :(
---[[
 		if verify.pass == 1 then
-			events.CheckNamesInValues("spawn point", verify, GridView)
+			events.CheckNamesInValues("music", verify, MusicView)
+			events.CheckNamesInValues("sound", verify, SoundView)
+
+			-- Make sure any name lookups are intact.
+			local music_list = MusicView:GetListbox()
+
+			if Enter:IsChecked() then
+				CheckNameIntegrity(verify, music_list, PlayOnEnter, "play on enter")
+			end
+
+			if Reset:IsChecked() then
+				CheckNameIntegrity(verify, music_list, PlayOnReset, "play on reset")
+			end
 		end
 
-		events.VerifyValues(verify, enemies, GridView)
-]]
--- two checks?
+		events.VerifyValues(verify, music, MusicView)
+		events.verifyValues(verify, sound, SoundView)
 	end
 } do
 	Runtime:addEventListener(k, v)
