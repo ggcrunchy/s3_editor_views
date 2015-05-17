@@ -180,18 +180,18 @@ end
 local function CheckNameIntegrity (verify, list, editable, what)
 	local n, name = list:GetCount(), editable:GetString().text
 
-	if n == 0 then
-		verify[#verify + 1] = ("No music available for `%s` to reference"):format(what)
-	elseif name ~= "" then
-		for i = 1, n do
-			if list:GetData(i).filename == name then
-				return
+	if n > 0 then
+		if name ~= "" then
+			for i = 1, n do
+				if list:GetData(i).filename == name then
+					return
+				end
 			end
-		end
 
-		verify[#verify + 1] = ("No music with filename `%s` available to associate with `%s`"):format(name, what)
-	elseif n > 1 then
-		verify[#verify + 1] = ("Multiple pieces of music to associate with `%s`, but none specified"):format(what)
+			verify[#verify + 1] = ("No music with filename `%s` available to associate with `%s`"):format(name, what)
+		elseif n > 1 then
+			verify[#verify + 1] = ("Multiple pieces of music to associate with `%s`, but none specified"):format(what)
+		end
 	end
 end
 
