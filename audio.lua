@@ -229,7 +229,7 @@ for k, v in pairs{
 
 		--
 		AddFlag(music_builds, state.enter and state.play_on_enter, "play_on_enter")
-		AddFlag(music_builds, state.leave and state.play_on_leave, "play_on_leave")
+		AddFlag(music_builds, state.reset and state.play_on_reset, "play_on_reset")
 	end,
 
 	-- Load Level WIP --
@@ -276,7 +276,7 @@ for k, v in pairs{
 		end
 
 		events.VerifyValues(verify, music, MusicView)
-		events.verifyValues(verify, sound, SoundView)
+		events.VerifyValues(verify, sound, SoundView)
 	end
 } do
 	Runtime:addEventListener(k, v)
