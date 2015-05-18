@@ -23,6 +23,9 @@
 -- [ MIT license: http://www.opensource.org/licenses/mit-license.php ]
 --
 
+-- Standard library imports --
+local pairs = pairs
+
 -- Modules --
 local dialog = require("s3_editor.Dialog")
 local events = require("s3_editor.Events")
