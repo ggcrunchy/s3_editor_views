@@ -43,6 +43,7 @@ local editable = require("corona_ui.patterns.editable")
 local events = require("s3_editor.Events")
 local help = require("s3_editor.Help")
 local layout = require("corona_ui.utils.layout")
+local layout_dsl = require("corona_ui.utils.layout_dsl")
 local list_views = require("s3_editor.ListViews")
 local music = require("s3_utils.music")
 local sound = require("s3_utils.sound")
@@ -67,9 +68,9 @@ local SoundView = list_views.EditErase(SoundDialog, "sound")
 
 --
 local function List (str, prefix, view, top, r, g, b)
-	local text = display.newText(Group, str, 0, 0, native.systemFont, 24)
+	local text = display.newText(Group, str, 0, 0, native.systemFont, layout.ResolveY("5%"))
 
-	layout.PutRightOf(text, 125)
+	layout.PutRightOf(text, "15.625%")
 	layout.PutBelow(text, top)
 
 	local list, bottom = view:Load(Group, prefix, layout.Below(text), layout.LeftOf(text))
@@ -93,38 +94,39 @@ function M.Load (view)
 	Group = display.newGroup()
 
 	--
-	local music_list, mbot = List("Music tracks", "music", MusicView, 80, 0, 0, 1)
-	local sound_list, sbot = List("Sound samples", "sound", SoundView, mbot + 15, 0, 1, 0)
+	local music_list, mbot = List("Music tracks", "music", MusicView, "16.67%", 0, 0, 1)
+	local sound_list, sbot = List("Sound samples", "sound", SoundView, mbot + layout.ResolveY("3.125%"), 0, 1, 0)
 
 	--
-	Enter = checkbox.Checkbox(Group, 40, 40)
+	Enter = checkbox.Checkbox(Group, "5%", "8.33%")
 
 	Enter:Check(true)
 
-	layout.PutBelow(Enter, sbot, 10)
+	layout.PutBelow(Enter, sbot, "2.1%")
 	layout.LeftAlignWith(Enter, sound_list)
 
-	local enter_str = display.newText(Group, "Play on enter?", 0, Enter.y, native.systemFontBold, 22)
+	local xsep, texth = layout_dsl.EvalDims(".625%", "4.6%")
+	local enter_str = display.newText(Group, "Play on enter?", 0, Enter.y, native.systemFontBold, texth)
 
-	layout.PutRightOf(enter_str, Enter, 5)
+	layout.PutRightOf(enter_str, Enter, xsep)
 
 	PlayOnEnter = editable.Editable_XY(Group, 0, Enter.y)
 
-	layout.PutRightOf(PlayOnEnter, enter_str, 5)
+	layout.PutRightOf(PlayOnEnter, enter_str, xsep)
 
-	Reset = checkbox.Checkbox_XY(Group, 0, Enter.y, 40, 40)
+	Reset = checkbox.Checkbox_XY(Group, 0, Enter.y, "5%", "8.3%")
 
 	Reset:Check(true)
 
-	layout.PutRightOf(Reset, PlayOnEnter, 15)
+	layout.PutRightOf(Reset, PlayOnEnter, xsep * 3)
 
-	local reset_str = display.newText(Group, "Reset track?", 0, Enter.y, native.systemFontBold, 22)
+	local reset_str = display.newText(Group, "Reset track?", 0, Enter.y, native.systemFontBold, texth)
 
-	layout.PutRightOf(reset_str, Reset, 5)
+	layout.PutRightOf(reset_str, Reset, xsep)
 
 	PlayOnReset = editable.Editable_XY(Group, 0, Enter.y)
 
-	layout.PutRightOf(PlayOnReset, reset_str, 5)
+	layout.PutRightOf(PlayOnReset, reset_str, xsep)
 
 	--
 	Group.isVisible = false

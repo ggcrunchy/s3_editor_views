@@ -298,7 +298,7 @@ function M.Load (view)
 	Grid:addEventListener("show", ShowHide)
 
 	--
-	CurrentEvent = grid1D.OptionsHGrid(view, 150, 50, 200, 100, "Current event")
+	CurrentEvent = grid1D.OptionsHGrid(view, "18.75%", "10.4%", "25%", "20.8%", "Current event")
 
 	--
 	local choices = { "Paint", "Edit", "Stretch", "Erase" }
@@ -339,7 +339,7 @@ function M.Load (view)
 				return true
 			end
 		end
-	end, 360)
+	end, "45%")
 
 	--
 	TryOption = grid.ChoiceTrier(choices)
