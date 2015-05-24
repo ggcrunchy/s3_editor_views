@@ -34,6 +34,8 @@ local config = require("config.GlobalEvents")
 local events = require("s3_editor.Events")
 local global_events = require("s3_utils.global_events")
 local help = require("s3_editor.Help")
+local layout = require("corona_ui.utils.layout")
+local layout_dsl = require("corona_ui.utils.layout_dsl")
 
 -- Corona globals --
 local display = display
@@ -64,9 +66,8 @@ end
 -- @pgroup view X
 function M.Load (view)
 	--
-	local left, top = 140, 95
-	local w = display.contentWidth - left - 50
-	local h = display.contentHeight - top - 120
+	local left, top = layout_dsl.EvalPos("17.5%", "19.8%")
+	local w, h = layout_dsl.EvalDims("76.25%", "55.2%")
 
 	Events = widget.newScrollView{
 		left = left, top = top, width = w, height = h,
@@ -76,7 +77,7 @@ function M.Load (view)
 	view:insert(Events)
 
 	--
-	EventBorder = display.newRoundedRect(view, left, top, w, h, 15)
+	EventBorder = display.newRoundedRect(view, left, top, w, h, layout.ResolveX("1.875%"))
 
 	EventBorder:setFillColor(0, 0, 1, .125)
 	EventBorder:setStrokeColor(0, 0, 1)
@@ -95,7 +96,8 @@ function M.Load (view)
 	end
 
 	--
-	local x, y, maxx, link_opts = 40, 40, 0, { rep = rep }
+	local x, y = layout_dsl.EvalPos("5%", "8.3%")
+	local maxx, link_opts = 0, { rep = rep }
 
 	local function AddLink (sub, interface)
 		link_opts.interfaces = interface
@@ -105,20 +107,20 @@ function M.Load (view)
 
 		link.x, link.y = x, y
 
-		local text = display.newText((interface == "event_source" and "Target: " or "Source: ") .. sub, 0, link.y, native.systemFontBold, 20)
+		local text = display.newText((interface == "event_source" and "Target: " or "Source: ") .. sub, 0, link.y, native.systemFontBold, layout.ResolveY("4.2%"))
 
-		text.anchorX, text.x = 0, x + link.width + 5
+		text.anchorX, text.x = 0, x + link.width + layout.ResolveX(".625%")
 
 		Events:insert(text)
 
-		y, maxx = y + 50, max(maxx, text.x + text.width)
+		y, maxx = y + layout.ResolveY("10.4%"), max(maxx, text.x + text.width)
 	end
 
 	for _, v in ipairs(config.actions) do
 		AddLink(v, "event_source")
 	end
 
-	x, y = maxx + 50, 40
+	x, y = maxx + layout.ResolveX("6.25%"), layout.ResolveY("8.3%")
 
 	for _, v in ipairs(config.events) do
 		AddLink(v, "event_target")
