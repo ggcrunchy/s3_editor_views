@@ -120,7 +120,7 @@ function M.Enter (view)
 	local group = Group[1][1]
 
 	for object in pairs(Tagged) do
-		if object.parent then
+		if object.removeSelf ~= nil then -- object still valid?
 			-- add links (do some arbitrage to not duplicate them)
 		else
 			Tagged[object] = nil
