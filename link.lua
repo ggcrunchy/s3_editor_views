@@ -52,13 +52,16 @@ local Group
 local Tagged
 
 -- --
+local ToRemove
+
+-- --
 local X, Y = 120, 80
 
 ---
 -- @pgroup view X
 function M.Load (view)
 	--
-	Group, Tagged = display.newGroup(), {}
+	Group, Tagged, ToRemove = display.newGroup(), {}, {}
 
 	view:insert(Group)
 
@@ -70,10 +73,10 @@ function M.Load (view)
 	local links = common.GetLinks()
 
 	links:SetAssignFunc(function(object)
-		Tagged[object] = true
+		Tagged[object] = false -- exists but no box yet (might already have links, though)
 	end)
 	links:SetRemoveFunc(function(object)
-		Tagged[object] = nil
+		ToRemove[#ToRemove + 1], Tagged[object] = Tagged[object]
 	end)
 
 	-- TODO: ^^ Could this be deterministic?
@@ -119,12 +122,24 @@ function M.Enter (view)
 	-- Cull any dangling objects.
 	local group = Group[1][1]
 
-	for object in pairs(Tagged) do
-		if display.isValid(object) then
-			-- add links (do some arbitrage to not duplicate them)
-		else
+	for object, state in pairs(Tagged) do
+		if not display.isValid(object) then
 			Tagged[object] = nil
+		elseif not state then
+			-- make a box
+			-- add any already-existing links (if a scene was loaded)
 		end
+	end
+
+	--
+	for i = #ToRemove, 1, -1 do
+		local state = ToRemove[i]
+
+		if state then
+			-- remove any link objects
+		end
+
+		ToRemove[i] = nil
 	end
 
 	--
@@ -142,7 +157,7 @@ end
 
 --- DOCMAYBE
 function M.Unload ()
-	Group, Tagged = nil
+	Group, Tagged, ToRemove = nil
 end
 
 -- Export the module.
