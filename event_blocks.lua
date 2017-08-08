@@ -420,8 +420,7 @@ local function AddRep (block, type)
 
 		FitTo(rep, tile)
 
-		common.BindRepAndValues(rep, block.info)
-		common.GetLinks():SetTag(rep, tag)
+		common.BindRepAndValuesWithTag(rep, block.info, tag, Dialog)
 
 		block.rep, rep.isVisible = rep, false
 	end
@@ -486,7 +485,7 @@ function Cell (event)
 	--
 	elseif Option == "Edit" then
 		if tile then
-			Dialog("edit", Blocks[tile.id].info, CurrentEvent.parent, tile.id, Blocks[tile.id].rep)
+			Dialog("edit", Blocks[tile.id].info, CurrentEvent.parent, tile.id)
 		else
 			Dialog("close")
 		end

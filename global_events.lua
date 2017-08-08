@@ -88,12 +88,11 @@ function M.Load (view)
 	--
 	Global = {}
 
-	local tag, rep = common.GetTag(false, global_events.EditorEvent), Events
+	local rep = Events
 
-	if tag then
-		common.BindRepAndValues(rep, Global)
-		common.GetLinks():SetTag(rep, tag)
-	end
+	common.BindRepAndValuesWithTag(rep, Global, common.GetTag(false, global_events.EditorEvent))
+
+	-- TODO: common.AttachLinkInfo(rep, ...)
 
 	--
 	local x, y = layout_dsl.EvalPos("5%", "8.3%")
