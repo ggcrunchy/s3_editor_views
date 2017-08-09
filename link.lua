@@ -32,6 +32,7 @@
 -- Standard library imports --
 local ceil = math.ceil
 local ipairs = ipairs
+local max = math.max
 local min = math.min
 local pairs = pairs
 local sort = table.sort
@@ -56,6 +57,9 @@ local M = {}
 local Group
 
 -- --
+local ItemGroup
+
+-- --
 local Tagged
 
 -- --
@@ -76,11 +80,15 @@ local Occupied
 -- --
 local CellDim
 
+-- --
+local X0, Y0
+
 ---
 -- @pgroup view X
 function M.Load (view)
 	--
-	Group, Index, Occupied, Tagged, ToRemove, ToSort = display.newGroup(), 1, {}, {}, {}, {}
+	Group, ItemGroup = display.newGroup(), display.newGroup()
+	Index, Occupied, Tagged, ToRemove, ToSort = 1, {}, {}, {}, {}
 
 	view:insert(Group)
 
@@ -89,7 +97,7 @@ function M.Load (view)
 	Group:insert(cont)
 
 	--
-	CellDim = ceil(min(cont.width, cont.height) / 5)
+	CellDim = ceil(.75 * min(cont.width, cont.height))
 
 	-- Keep a mostly up-to-date list of tagged objects.
 	local links = common.GetLinks()
@@ -103,18 +111,14 @@ function M.Load (view)
 		ToRemove[#ToRemove + 1], Tagged[object] = Tagged[object]
 	end)
 
-	-- TODO: ^^ Could this be deterministic?
-	-- Cloud of links, etc.
-
 	--
-	local group, cw, ch = display.newGroup(), cont.width, cont.height
+	local cw, ch = cont.width, cont.height
 
-	cont:insert(group)
+	cont:insert(ItemGroup)
 
-	group:translate(-cw / 2, -ch / 2)
+	X0, Y0 = -cw / 2, -ch / 2
 
---	local aa = display.newCircle(group, 20, 60, 35)
---	local bb = display.newCircle(group, 300, 200, 20)
+	ItemGroup:translate(X0, Y0)
 
 	layout.PutRightOf(cont, X, 5)
 	layout.PutBelow(cont, Y, 5)
@@ -122,7 +126,10 @@ function M.Load (view)
 	-- Draggable thing...
 	local drag = display.newRect(Group, cont.x, cont.y, cw, ch)
 
-	drag:addEventListener("touch", touch.DragViewTouch(group))
+	drag:addEventListener("touch", touch.DragViewTouch(ItemGroup, {
+		x0 = "cur", y0 = "cur", xclamp = "max", yclamp = "max"
+	}))
+	drag:toBack()
 
 	drag.isHitTestable, drag.isVisible = true, false
 
@@ -141,14 +148,136 @@ function M.Load (view)
 end
 
 --
-local function AddLineToGroup (bgroup, sub_group)
-	if not sub_group then
-		sub_group = display.newGroup()
+local function Align (group, is_rgroup)
+	local w = group.m_w
 
-		bgroup:insert(sub_group)
+	for i = 1, group.numChildren do
+		local object = group[i]
+		local dx = w - object.m_w
+
+		if is_rgroup then
+			object.x = object.x + dx
+		else
+			object.x = object.x - dx
+		end
+	end
+end
+
+--
+local function FindBottom (group)
+	local y2, n = 0, group.numChildren
+	local line = n > 0 and group[n].m_line
+
+	for i = n, 1, -1 do
+		local object = group[i]
+
+		if object.m_line ~= line then
+			break
+		else
+			y2 = max(y2, object.y + object.height / 2)
+		end
 	end
 
-	return sub_group, sub_group
+	return y2
+end
+
+-- Box drag listener
+local DragTouch = touch.DragParentTouch()
+
+--
+local function AddObjectBox (group, tag_db, tag, object, sx, sy)
+	local info, name, bgroup = common.AttachLinkInfo(object, nil), common.GetValuesFromRep(object).name, display.newGroup()
+name = name or "HI"
+	group:insert(bgroup)
+
+	local lgroup, rgroup = display.newGroup(), display.newGroup()
+
+	bgroup:insert(lgroup)
+	bgroup:insert(rgroup)
+
+	for _, sub in tag_db:Sublinks(tag) do
+		local iinfo, text = info and info[sub]
+		local itype, is_source = iinfo and type(iinfo), tag_db:ImplementedBySublink(tag, sub, "event_source")
+
+		--
+		if itype == "table" then
+			if iinfo.is_source ~= nil then
+				is_source = iinfo.is_source
+			end
+
+			text = iinfo.text
+		elseif itype == "string" then
+			text = iinfo
+		end
+
+		--
+		local cur = is_source and rgroup or lgroup
+		local n = cur.numChildren
+		local link = display.newCircle(cur, 0, 0, 5)
+		local stext = display.newText(cur, sub, 0, 0, native.systemFont, 12)
+
+		--
+		local method, offset, lo, ro
+
+		if is_source then
+			method, offset, lo, ro = "PutLeftOf", -5, text or stext, link
+		else
+			method, offset, lo, ro = "PutRightOf", 5, link, text or stext
+		end
+
+		--
+		layout[method](stext, link, offset)
+
+		if text then
+			--
+		--	layout[method](text, stext, offset)
+		end
+
+		--
+		local w, line = layout.RightOf(ro) - layout.LeftOf(lo), (cur.m_line or 0) + 1
+
+		cur.m_w = max(cur.m_w or 0, w)
+
+		for i = n + 1, cur.numChildren do
+			local object = cur[i]
+
+			if line > 1 then
+				layout.PutBelow(object, cur.m_prev, 5)
+			else
+				cur.m_y1 = min(cur.m_y1 or 0, object.y - object.height / 2)
+			end
+
+			object.m_w = w
+		end
+
+		cur.m_line, cur.m_prev = line, link
+	end
+
+	-- Make a new box at this spot.
+	local ntext = display.newText(bgroup, name, 0, 0, native.systemFont, 12)
+	local w = max(lgroup.m_w + rgroup.m_w, ntext.width) + 35
+	local y1, y2 = min(lgroup.m_y1, rgroup.m_y1), max(FindBottom(lgroup), FindBottom(rgroup))
+	local box = display.newRoundedRect(bgroup, (sx + .5) * CellDim, (sy + .5) * CellDim, w, y2 - y1 + 30, 12)
+	local hw, y = box.width / 2, box.y - box.height / 2 + 15
+
+	Align(lgroup, false)
+	Align(lgroup, true)
+
+	ntext.x, ntext.y = box.x, y - 5
+
+	lgroup.y, rgroup.y = y + 15, y + 15
+
+	lgroup.x = box.x - hw + 10
+	rgroup.x, rgroup.anchorX = box.x + hw - 10, 1
+
+	box:addEventListener("touch", DragTouch)
+	box:setFillColor(.375, .675)
+	box:setStrokeColor(.125)
+	box:toBack()
+
+	box.strokeWidth = 2
+
+	return box, ntext
 end
 
 -- Helper to sort objects in creation order
@@ -160,8 +289,6 @@ end
 -- @pgroup view X
 function M.Enter (view)
 	-- Cull any dangling objects and gather up new ones.
-	local group = Group[1][1]
-
 	for object, state in pairs(Tagged) do
 		if not display.isValid(object) then
 			Tagged[object] = nil
@@ -169,6 +296,16 @@ function M.Enter (view)
 			ToSort[#ToSort + 1] = object
 		end
 	end
+
+--[[
+	local name = common.GetValuesFromRep(object).name
+
+	if state.m_name.text ~= name then
+		state.m_name.text = name
+		-- TODO: might need resizing :/
+		-- TODO: probably needs a Runtime event
+	end
+]]
 
 	-- Remove any dead objects.
 	for i = #ToRemove, 1, -1 do
@@ -185,87 +322,22 @@ function M.Enter (view)
 		ToRemove[i] = nil
 	end
 
-	-- Dole out spots to any new objects in creation order.
+	-- Dole out spots to any new objects in creation order, adding boxes there.
 	sort(ToSort, SortByIndex)
 
 	local links, spot = common.GetLinks(), -1
 	local tag_db = links:GetTagDatabase()
 
 	for _, object in ipairs(ToSort) do
-		-- Find a relatively open spot and claim it.
 		repeat
 			spot = spot + 1
 		until (Occupied[spot] or 0) == 0
 
 		Occupied[spot] = (Occupied[spot] or 0) + 1
 
-		--
-		local info, tag = common.AttachLinkInfo(object, nil), links:GetTag(object)
-		local bgroup, lgroup, rgroup = display.newGroup()
+		local box, name = AddObjectBox(ItemGroup, tag_db, links:GetTag(object), object, morton.MortonPair(spot))
 
-		group:insert(bgroup)
-
-		for _, sub in tag_db:Sublinks(tag) do
-			local iinfo, text = info and info[sub]
-			local itype, is_source = iinfo and type(iinfo), tag_db:ImplementedBySublink(tag, sub, "event_source")
-
-			--
-			if itype == "table" then
-				if iinfo.is_source ~= nil then
-					is_source = iinfo.is_source
-				end
-
-				text = iinfo.text
-			elseif itype == "string" then
-				text = iinfo
-			end
-
-			--
-			local cur
-
-			if is_source then
-				rgroup, cur = AddLineToGroup(bgroup, rgroup)
-			else
-				lgroup, cur = AddLineToGroup(bgroup, lgroup)
-			end
-
-			--
-			local n = cur.numChildren
-			local link = display.newCircle(cur, 0, 0, 5)
-			local stext = display.newText(cur, sub, 0, 0, native.systemFont, 12)
-
-			--
-			local method, offset
-
-			if is_source then
-				method, offset = "PutLeftOf", -5
-			else
-				method, offset = "PutRightOf", 5
-			end
-
-			--
-			layout[method](stext, link, offset)
-
-			if text then
-				--
-			--	layout[method](text, stext, offset)
-			end
-
-			--
-			for i = n > 0 and cur.numChildren or 0, n + 1, -1 do
-				layout.PutBelow(cur[i], cur.m_prev, 5)
-			end
-
-			cur.m_prev = link
-		end
-
-		-- Make a new box at this spot.
-		local sx, sy = morton.MortonPair(spot)
-		local box
-		-- (sx + .5) * CellDim, (sy + .5) * CellDim
-
-		--
-		Tagged[object], object.m_link_index = { m_box = box, m_spot = spot }
+		Tagged[object], object.m_link_index = {	m_box = box, m_name = name, m_spot = spot }
 	end
 
 	-- Now that our objects all exist, wire up any links and clear the list.
@@ -290,7 +362,7 @@ end
 
 --- DOCMAYBE
 function M.Unload ()
-	Group, Occupied, Tagged, ToRemove, ToSort = nil
+	Group, ItemGroup, Occupied, Tagged, ToRemove, ToSort = nil
 end
 
 -- Export the module.
