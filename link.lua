@@ -83,6 +83,9 @@ local CellDim
 -- --
 local X0, Y0
 
+-- Box drag listener --
+local DragTouch
+
 ---
 -- @pgroup view X
 function M.Load (view)
@@ -123,11 +126,14 @@ function M.Load (view)
 	layout.PutRightOf(cont, X, 5)
 	layout.PutBelow(cont, Y, 5)
 
+	--
+	DragTouch = touch.DragParentTouch_Child(1, { clamp = "max", ref = "object" })
+
 	-- Draggable thing...
 	local drag = display.newRect(Group, cont.x, cont.y, cw, ch)
 
 	drag:addEventListener("touch", touch.DragViewTouch(ItemGroup, {
-		x0 = "cur", y0 = "cur", xclamp = "max", yclamp = "max"
+		x0 = "cur", y0 = "cur", xclamp = "view_max", yclamp = "view_max"
 	}))
 	drag:toBack()
 
@@ -181,13 +187,10 @@ local function FindBottom (group)
 	return y2
 end
 
--- Box drag listener
-local DragTouch = touch.DragParentTouch()
-
 --
 local function AddObjectBox (group, tag_db, tag, object, sx, sy)
 	local info, name, bgroup = common.AttachLinkInfo(object, nil), common.GetValuesFromRep(object).name, display.newGroup()
-name = name or "HI"
+
 	group:insert(bgroup)
 
 	local lgroup, rgroup = display.newGroup(), display.newGroup()
@@ -229,8 +232,7 @@ name = name or "HI"
 		layout[method](stext, link, offset)
 
 		if text then
-			--
-		--	layout[method](text, stext, offset)
+			-- hook up some touch listener, change appearance
 		end
 
 		--
@@ -253,10 +255,24 @@ name = name or "HI"
 		cur.m_line, cur.m_prev = line, link
 	end
 
-	-- Make a new box at this spot.
+	--
+	local w, y1, y2 = lgroup.m_w
+
+	if w and rgroup.m_w then
+		w = w + rgroup.m_w
+		y1 = min(lgroup.m_y1, rgroup.m_y1)
+		y2 = max(FindBottom(lgroup), FindBottom(rgroup))
+	elseif w then
+		y1, y2 = lgroup.m_y1, FindBottom(lgroup)
+	else
+		w, y1, y2 = rgroup.m_w, rgroup.m_y1, FindBottom(rgroup)
+	end
+
 	local ntext = display.newText(bgroup, name, 0, 0, native.systemFont, 12)
-	local w = max(lgroup.m_w + rgroup.m_w, ntext.width) + 35
-	local y1, y2 = min(lgroup.m_y1, rgroup.m_y1), max(FindBottom(lgroup), FindBottom(rgroup))
+
+	w = max(w, ntext.width) + 35
+
+	-- Make a new box at this spot.
 	local box = display.newRoundedRect(bgroup, (sx + .5) * CellDim, (sy + .5) * CellDim, w, y2 - y1 + 30, 12)
 	local hw, y = box.width / 2, box.y - box.height / 2 + 15
 
@@ -314,7 +330,7 @@ function M.Enter (view)
 		if state then
 			-- remove any link objects
 
-			state.m_box:removeSelf()
+			state.m_box.parent:removeSelf()
 
 			Occupied[state.m_spot] = Occupied[state.m_spot] - 1
 		end

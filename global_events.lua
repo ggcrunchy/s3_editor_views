@@ -86,7 +86,7 @@ function M.Load (view)
 	EventBorder.strokeWidth = 4
 
 	--
-	Global = {}
+	Global = { name = "Global" }
 
 	local rep = Events
 
