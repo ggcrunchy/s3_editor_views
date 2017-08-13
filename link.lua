@@ -34,6 +34,7 @@ local ceil = math.ceil
 local ipairs = ipairs
 local max = math.max
 local min = math.min
+local next = next
 local pairs = pairs
 local sort = table.sort
 local type = type
@@ -41,8 +42,10 @@ local type = type
 -- Modules --
 local common = require("s3_editor.Common")
 local common_ui = require("s3_editor.CommonUI")
+local grid = require("tektite_core.array.grid")
 local help = require("s3_editor.Help")
 local layout = require("corona_ui.utils.layout")
+local link_group = require("corona_ui.widgets.link_group")
 local morton = require("number_sequences.morton")
 local touch = require("corona_ui.utils.touch")
 
@@ -58,6 +61,12 @@ local Group
 
 -- --
 local ItemGroup
+
+-- --
+local LinkLayer
+
+-- --
+local Links
 
 -- --
 local Tagged
@@ -83,14 +92,89 @@ local CellDim
 -- --
 local X0, Y0
 
+-- --
+local XOff, YOff
+
 -- Box drag listener --
 local DragTouch
+
+--
+local function GetCells (box)
+	local x, y, hw, hh = box.x, box.y, box.contentWidth / 2, box.contentHeight / 2
+	local col1, row1 = grid.PosToCell(x - hw, y - hh, CellDim, CellDim)
+
+	return col1, row1, grid.PosToCell(x + hw, y + hh, CellDim, CellDim)
+end
+
+--
+local function AddToCell (box)
+	local col1, row1, col2, row2 = GetCells(box)
+
+	for num in morton.Morton2_LineY(col1, row1, row2) do
+		for col = col1, col2 do
+			local cell = Occupied[num] or {}
+
+			Occupied[num], num, cell[box] = cell, morton.MortonPairUpdate_X(num, col + 1), true
+		end
+	end
+end
+
+--
+local function RemoveFromCell (box)
+	local col1, row1, col2, row2 = GetCells(box)
+
+	for num in morton.Morton2_LineY(col1, row1, row2) do
+		for col = col1, col2 do
+			local cell = Occupied[num]
+
+			if cell then
+				cell[box] = nil
+			end
+
+			num = morton.MortonPairUpdate_X(num, col + 1)
+		end
+	end
+end
+
+--
+local function Connect (_, obj1, obj2, node)
+	--[[
+	-- One object is the rep, but the other will have some data and need some treatment.
+	local object, sub = Box.m_object, obj1.m_sub or obj2.m_sub
+
+	node.m_link = common.GetLinks():LinkObjects(Rep, object, Sub, sub)
+
+	AddObject(object)
+	Refresh(true)]]
+end
+
+-- Lines (with "break" option) shown in between
+local NodeTouch = link_group.BreakTouchFunc(function(node)
+	node.m_link:Break()
+end)
+
+--
+local function ConnectObjects (object, node)
+	local links = common.GetLinks()
+--[[
+	for _, item, _, sub in BoxItems() do
+		for link in links:Links(object, sub) do
+			local obj, osub = link:GetOtherObject(object)
+
+			if obj == Rep and osub == Sub then
+				local join = link_group.Connect(item, node, NodeTouch, Links:GetGroups())
+
+				join.m_link = link
+			end
+		end
+	end]]
+end
 
 ---
 -- @pgroup view X
 function M.Load (view)
 	--
-	Group, ItemGroup = display.newGroup(), display.newGroup()
+	Group, ItemGroup, LinkLayer = display.newGroup(), display.newGroup(), display.newGroup()
 	Index, Occupied, Tagged, ToRemove, ToSort = 1, {}, {}, {}, {}
 
 	view:insert(Group)
@@ -119,25 +203,47 @@ function M.Load (view)
 
 	cont:insert(ItemGroup)
 
-	X0, Y0 = -cw / 2, -ch / 2
+	X0, Y0, XOff, YOff = -cw / 2, -ch / 2, 0, 0
 
 	ItemGroup:translate(X0, Y0)
+
+	cont:insert(LinkLayer)
+
+	LinkLayer:translate(X0, Y0)
 
 	layout.PutRightOf(cont, X, 5)
 	layout.PutBelow(cont, Y, 5)
 
 	--
-	DragTouch = touch.DragParentTouch_Child(1, { clamp = "max", ref = "object" })
+	DragTouch = touch.DragParentTouch_Child(1, {
+		clamp = "max", ref = "object",
+
+		on_move = function(_, box)
+			RemoveFromCell(box)
+			AddToCell(box)
+		end
+	})
 
 	-- Draggable thing...
 	local drag = display.newRect(Group, cont.x, cont.y, cw, ch)
 
 	drag:addEventListener("touch", touch.DragViewTouch(ItemGroup, {
-		x0 = "cur", y0 = "cur", xclamp = "view_max", yclamp = "view_max"
+		x0 = "cur", y0 = "cur", xclamp = "view_max", yclamp = "view_max",
+
+		on_move = function(ig)
+			XOff, YOff = X0 - ig.x, Y0 - ig.y
+		end
 	}))
 	drag:toBack()
 
 	drag.isHitTestable, drag.isVisible = true, false
+
+	--
+	Links = link_group.LinkGroup(LinkLayer, Connect, NodeTouch, {
+		gather = function(items)
+			-- Visit each box visible in the view, putting items here
+		end
+	})
 
 	--
 	common_ui.Frame(cont, 1, 0, 1)
@@ -187,6 +293,9 @@ local function FindBottom (group)
 	return y2
 end
 
+-- --
+local BoxID = 0
+
 --
 local function AddObjectBox (group, tag_db, tag, object, sx, sy)
 	local info, name, bgroup = common.AttachLinkInfo(object, nil), common.GetValuesFromRep(object).name, display.newGroup()
@@ -234,6 +343,9 @@ local function AddObjectBox (group, tag_db, tag, object, sx, sy)
 		if text then
 			-- hook up some touch listener, change appearance
 		end
+
+		--
+		Links:AddLink(BoxID, not is_source, link)
 
 		--
 		local w, line = layout.RightOf(ro) - layout.LeftOf(lo), (cur.m_line or 0) + 1
@@ -293,6 +405,8 @@ local function AddObjectBox (group, tag_db, tag, object, sx, sy)
 
 	box.strokeWidth = 2
 
+	BoxID = BoxID + 1
+
 	return box, ntext
 end
 
@@ -328,11 +442,11 @@ function M.Enter (view)
 		local state = ToRemove[i]
 
 		if state then
-			-- remove any link objects
+			-- TODO: remove any link objects
+
+			RemoveFromCell(state.m_box)
 
 			state.m_box.parent:removeSelf()
-
-			Occupied[state.m_spot] = Occupied[state.m_spot] - 1
 		end
 
 		ToRemove[i] = nil
@@ -347,13 +461,15 @@ function M.Enter (view)
 	for _, object in ipairs(ToSort) do
 		repeat
 			spot = spot + 1
-		until (Occupied[spot] or 0) == 0
 
-		Occupied[spot] = (Occupied[spot] or 0) + 1
+			local cell = Occupied[spot]
+		until (cell and next(cell, nil)) == nil
 
 		local box, name = AddObjectBox(ItemGroup, tag_db, links:GetTag(object), object, morton.MortonPair(spot))
 
 		Tagged[object], object.m_link_index = {	m_box = box, m_name = name, m_spot = spot }
+
+		AddToCell(box)
 	end
 
 	-- Now that our objects all exist, wire up any links and clear the list.
