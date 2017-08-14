@@ -138,15 +138,8 @@ local function RemoveFromCell (box)
 end
 
 --
-local function Connect (_, obj1, obj2, node)
-	--[[
-	-- One object is the rep, but the other will have some data and need some treatment.
-	local object, sub = Box.m_object, obj1.m_sub or obj2.m_sub
-
-	node.m_link = common.GetLinks():LinkObjects(Rep, object, Sub, sub)
-
-	AddObject(object)
-	Refresh(true)]]
+local function Connect (_, link1, link2, node)
+	node.m_link = common.GetLinks():LinkObjects(link1.m_obj, link2.m_obj, link1.m_sub, link2.m_sub)
 end
 
 -- Lines (with "break" option) shown in between
@@ -216,7 +209,7 @@ function M.Load (view)
 
 	cont:insert(LinkLayer)
 
-	LinkLayer:translate(X0 - X, Y0 - Y)
+	LinkLayer:translate(X0 - (X + 5), Y0 - (Y + 5))
 
 	layout.PutRightOf(cont, X, 5)
 	layout.PutBelow(cont, Y, 5)
@@ -255,6 +248,12 @@ function M.Load (view)
 	end
 
 	Links = link_group.LinkGroup(LinkLayer, Connect, NodeTouch, {
+		-- Can Link --
+		can_link = function(link1, link2)
+			return common.GetLinks():CanLink(link1.m_obj, link2.m_obj, link1.m_sub, link2.m_sub)
+		end,
+
+		-- Gather --
 		gather = function(items)
 			local col1, row1 = grid.PosToCell(XOff, YOff, CellDim, CellDim)
 
@@ -367,6 +366,8 @@ local function AddObjectBox (group, tag_db, tag, object, sx, sy)
 		local link = display.newCircle(cur, 0, 0, 5)
 		local stext = display.newText(cur, sub, 0, 0, native.systemFont, 12)
 
+		link.strokeWidth = 3
+
 		--
 		local method, offset, lo, ro
 
@@ -385,6 +386,8 @@ local function AddObjectBox (group, tag_db, tag, object, sx, sy)
 
 		--
 		Links:AddLink(BoxID, not is_source, link)
+
+		link.m_obj, link.m_sub = object, sub
 
 		--
 		local w, line = layout.RightOf(ro) - layout.LeftOf(lo), (cur.m_line or 0) + 1
@@ -508,7 +511,7 @@ function M.Enter (view)
 
 		local box, name = AddObjectBox(ItemGroup, tag_db, links:GetTag(object), object, morton.MortonPair(spot))
 
-		Tagged[object], object.m_link_index = {	m_box = box, m_name = name, m_spot = spot }
+		Tagged[object], object.m_link_index = {	m_box = box, m_name = name }
 
 		AddToCell(box)
 	end
