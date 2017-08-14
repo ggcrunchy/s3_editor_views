@@ -102,8 +102,9 @@ local DragTouch
 local function GetCells (box)
 	local x, y, hw, hh = box.x, box.y, box.contentWidth / 2, box.contentHeight / 2
 	local col1, row1 = grid.PosToCell(x - hw, y - hh, CellDim, CellDim)
+	local col2, row2 = grid.PosToCell(x + hw, y + hh, CellDim, CellDim)
 
-	return col1, row1, grid.PosToCell(x + hw, y + hh, CellDim, CellDim)
+	return col1 - 1, row1 - 1, col2 - 1, row2 - 1
 end
 
 --
@@ -170,6 +171,12 @@ local function ConnectObjects (object, node)
 	end]]
 end
 
+-- --
+local CellFrac = .75
+
+-- --
+local NCells = ceil(1 / CellFrac) + 1
+
 ---
 -- @pgroup view X
 function M.Load (view)
@@ -184,7 +191,7 @@ function M.Load (view)
 	Group:insert(cont)
 
 	--
-	CellDim = ceil(.75 * min(cont.width, cont.height))
+	CellDim = ceil(CellFrac * min(cont.width, cont.height))
 
 	-- Keep a mostly up-to-date list of tagged objects.
 	local links = common.GetLinks()
@@ -209,7 +216,7 @@ function M.Load (view)
 
 	cont:insert(LinkLayer)
 
-	LinkLayer:translate(X0, Y0)
+	LinkLayer:translate(X0 - X, Y0 - Y)
 
 	layout.PutRightOf(cont, X, 5)
 	layout.PutBelow(cont, Y, 5)
@@ -239,9 +246,41 @@ function M.Load (view)
 	drag.isHitTestable, drag.isVisible = true, false
 
 	--
+	local seen = {}
+
+	local function AddFromGroup (items, group)
+		for i = 1, group.numChildren do
+			items[#items + 1] = group[i]
+		end
+	end
+
 	Links = link_group.LinkGroup(LinkLayer, Connect, NodeTouch, {
 		gather = function(items)
-			-- Visit each box visible in the view, putting items here
+			local col1, row1 = grid.PosToCell(XOff, YOff, CellDim, CellDim)
+
+			for num in morton.Morton2_LineY(col1 - 1, row1 - 1, row1 + NCells - 2) do
+				for i = 0, NCells - 1 do
+					local cell = Occupied[num]
+
+					if cell then
+						for box in pairs(cell) do
+							if not seen[box] then
+								AddFromGroup(items, box.m_lgroup)
+								AddFromGroup(items, box.m_rgroup)
+
+								seen[box] = true
+							end
+						end
+					end
+
+					num = morton.MortonPairUpdate_X(num, col1 + i)
+				end
+			end
+
+			--
+			for k in pairs(seen) do
+				seen[k] = nil
+			end
 		end
 	})
 
@@ -332,9 +371,9 @@ local function AddObjectBox (group, tag_db, tag, object, sx, sy)
 		local method, offset, lo, ro
 
 		if is_source then
-			method, offset, lo, ro = "PutLeftOf", -5, text or stext, link
+			method, offset, lo, ro = "PutLeftOf", -5, stext, link
 		else
-			method, offset, lo, ro = "PutRightOf", 5, link, text or stext
+			method, offset, lo, ro = "PutRightOf", 5, link, stext
 		end
 
 		--
@@ -387,6 +426,8 @@ local function AddObjectBox (group, tag_db, tag, object, sx, sy)
 	-- Make a new box at this spot.
 	local box = display.newRoundedRect(bgroup, (sx + .5) * CellDim, (sy + .5) * CellDim, w, y2 - y1 + 30, 12)
 	local hw, y = box.width / 2, box.y - box.height / 2 + 15
+
+	box.m_lgroup, box.m_rgroup = lgroup, rgroup
 
 	Align(lgroup, false)
 	Align(lgroup, true)
