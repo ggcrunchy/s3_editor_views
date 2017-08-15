@@ -137,35 +137,30 @@ local function RemoveFromCell (box)
 	end
 end
 
+-- --
+local NodeLists
+
 --
 local function Connect (_, link1, link2, node)
 	node.m_link = common.GetLinks():LinkObjects(link1.m_obj, link2.m_obj, link1.m_sub, link2.m_sub)
+
+	local id1, id2 = link_group.GetLinkInfo(link1), link_group.GetLinkInfo(link2)
+	local nl1, nl2 = NodeLists[id1], NodeLists[id2]
+
+	node.m_id1, node.m_id2 = id1, id2
+
+	nl1[node], nl2[node] = true, true
 end
 
 -- Lines (with "break" option) shown in between
 local NodeTouch = link_group.BreakTouchFunc(function(node)
 	node.m_link:Break()
+
+	NodeLists[node.m_id1][node], NodeLists[node.m_id2][node] = nil
 end)
 
---
-local function ConnectObjects (object, node)
-	local links = common.GetLinks()
---[[
-	for _, item, _, sub in BoxItems() do
-		for link in links:Links(object, sub) do
-			local obj, osub = link:GetOtherObject(object)
-
-			if obj == Rep and osub == Sub then
-				local join = link_group.Connect(item, node, NodeTouch, Links:GetGroups())
-
-				join.m_link = link
-			end
-		end
-	end]]
-end
-
 -- --
-local CellFrac = .75
+local CellFrac = .55
 
 -- --
 local NCells = ceil(1 / CellFrac) + 1
@@ -175,7 +170,7 @@ local NCells = ceil(1 / CellFrac) + 1
 function M.Load (view)
 	--
 	Group, ItemGroup, LinkLayer = display.newGroup(), display.newGroup(), display.newGroup()
-	Index, Occupied, Tagged, ToRemove, ToSort = 1, {}, {}, {}, {}
+	Index, Occupied, NodeLists, Tagged, ToRemove, ToSort = 1, {}, {}, {}, {}, {}
 
 	view:insert(Group)
 
@@ -247,6 +242,10 @@ function M.Load (view)
 		end
 	end
 
+	local function SortByID (box1, box2)
+		return box1.m_id > box2.m_id
+	end
+
 	Links = link_group.LinkGroup(LinkLayer, Connect, NodeTouch, {
 		-- Can Link --
 		can_link = function(link1, link2)
@@ -255,6 +254,7 @@ function M.Load (view)
 
 		-- Gather --
 		gather = function(items)
+			-- Gather each unique box in the mostly-in-view cells.
 			local col1, row1 = grid.PosToCell(XOff, YOff, CellDim, CellDim)
 
 			for num in morton.Morton2_LineY(col1 - 1, row1 - 1, row1 + NCells - 2) do
@@ -264,10 +264,7 @@ function M.Load (view)
 					if cell then
 						for box in pairs(cell) do
 							if not seen[box] then
-								AddFromGroup(items, box.m_lgroup)
-								AddFromGroup(items, box.m_rgroup)
-
-								seen[box] = true
+								seen[#seen + 1], seen[box] = box, true
 							end
 						end
 					end
@@ -276,7 +273,15 @@ function M.Load (view)
 				end
 			end
 
-			--
+			-- Order the boxes by ID so that any arbitration during the linking process
+			-- agrees with the render order. Wipe the list for next time.
+			sort(seen, SortByID)
+
+			for _, box in ipairs(seen) do
+				AddFromGroup(items, box.m_lgroup)
+				AddFromGroup(items, box.m_rgroup)
+			end
+
 			for k in pairs(seen) do
 				seen[k] = nil
 			end
@@ -362,11 +367,10 @@ local function AddObjectBox (group, tag_db, tag, object, sx, sy)
 
 		--
 		local cur = is_source and rgroup or lgroup
-		local n = cur.numChildren
-		local link = display.newCircle(cur, 0, 0, 5)
+		local n, link = cur.numChildren, display.newCircle(cur, 0, 0, 5)
 		local stext = display.newText(cur, sub, 0, 0, native.systemFont, 12)
 
-		link.strokeWidth = 3
+		link.strokeWidth = 1
 
 		--
 		local method, offset, lo, ro
@@ -424,13 +428,15 @@ local function AddObjectBox (group, tag_db, tag, object, sx, sy)
 
 	local ntext = display.newText(bgroup, name, 0, 0, native.systemFont, 12)
 
+	ntext:setFillColor(0)
+
 	w = max(w, ntext.width) + 35
 
 	-- Make a new box at this spot.
 	local box = display.newRoundedRect(bgroup, (sx + .5) * CellDim, (sy + .5) * CellDim, w, y2 - y1 + 30, 12)
 	local hw, y = box.width / 2, box.y - box.height / 2 + 15
 
-	box.m_lgroup, box.m_rgroup = lgroup, rgroup
+	box.m_lgroup, box.m_rgroup, box.m_id = lgroup, rgroup, BoxID
 
 	Align(lgroup, false)
 	Align(lgroup, true)
@@ -449,9 +455,52 @@ local function AddObjectBox (group, tag_db, tag, object, sx, sy)
 
 	box.strokeWidth = 2
 
-	BoxID = BoxID + 1
+	NodeLists[BoxID], BoxID = {}, BoxID + 1
 
 	return box, ntext
+end
+
+-- --
+local LinkInUse = setmetatable({}, { __mode = "k" })
+
+--
+local function FindLink (group, sub)
+	for i = 1, group.numChildren do
+		local item = group[i]
+
+		if item.m_sub == sub then
+			return item
+		end
+	end
+end
+
+--
+local function DoLinks (links, group, object)
+	for i = 1, group.numChildren do
+		local lobj = group[i]
+		local lsub = lobj.m_sub
+
+		if lsub then
+			for link in links:Links(object, lsub) do
+				if not LinkInUse[link] then
+					local obj, osub = link:GetOtherObject(object)
+					local obox = Tagged[obj].m_box
+					local olink = FindLink(obox.m_lgroup, osub) or FindLink(obox.m_rgroup, osub)
+					local node = link_group.ConnectObjects(lobj, olink)
+
+					node.m_link, LinkInUse[link] = link, true
+				end
+			end
+		end
+	end
+end
+
+--
+local function ConnectObject (object)
+	local links, box = common.GetLinks(), Tagged[object].m_box
+
+	DoLinks(links, box.m_lgroup, object)
+	DoLinks(links, box.m_rgroup, object)
 end
 
 -- Helper to sort objects in creation order
@@ -486,11 +535,23 @@ function M.Enter (view)
 		local state = ToRemove[i]
 
 		if state then
-			-- TODO: remove any link objects
+			--
+			local box = state.m_box
+			local id = box.m_id
 
-			RemoveFromCell(state.m_box)
+			for node in pairs(NodeLists[id]) do
+				link_group.Break(node)
 
-			state.m_box.parent:removeSelf()
+				NodeLists[node.m_id1], NodeLists[node.m_id2] = nil
+			end
+
+			NodeLists[id] = nil
+
+			--
+			RemoveFromCell(box)
+
+			--
+			box.parent:removeSelf()
 		end
 
 		ToRemove[i] = nil
@@ -518,7 +579,7 @@ function M.Enter (view)
 
 	-- Now that our objects all exist, wire up any links and clear the list.
 	for i = #ToSort, 1, -1 do
-		-- add any already-existing links (if a scene was loaded)
+		ConnectObject(ToSort[i])
 
 		ToSort[i] = nil
 	end
@@ -538,7 +599,7 @@ end
 
 --- DOCMAYBE
 function M.Unload ()
-	Group, ItemGroup, Occupied, Tagged, ToRemove, ToSort = nil
+	Group, ItemGroup, NodeLists, Occupied, Tagged, ToRemove, ToSort = nil
 end
 
 -- Export the module.
