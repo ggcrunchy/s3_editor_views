@@ -52,6 +52,7 @@ local touch = require("corona_ui.utils.touch")
 -- Corona globals --
 local display = display
 local native = native
+local transition = transition
 
 -- Exports --
 local M = {}
@@ -100,9 +101,10 @@ local DragTouch
 
 --
 local function GetCells (box)
-	local x, y, hw, hh = box.x, box.y, box.contentWidth / 2, box.contentHeight / 2
-	local col1, row1 = grid.PosToCell(x - hw, y - hh, CellDim, CellDim)
-	local col2, row2 = grid.PosToCell(x + hw, y + hh, CellDim, CellDim)
+	local group = box.parent
+	local x, y = group.x, group.y
+	local col1, row1 = grid.PosToCell(x, y, CellDim, CellDim)
+	local col2, row2 = grid.PosToCell(x + box.contentWidth, y + box.contentHeight, CellDim, CellDim)
 
 	return col1 - 1, row1 - 1, col2 - 1, row2 - 1
 end
@@ -110,20 +112,21 @@ end
 --
 local function AddToCell (box)
 	local col1, row1, col2, row2 = GetCells(box)
-
+print("A!", col1, row1, col2, row2)
 	for num in morton.Morton2_LineY(col1, row1, row2) do
 		for col = col1, col2 do
 			local cell = Occupied[num] or {}
-
+--print("ADDING",morton.MortonPair(num))
 			Occupied[num], num, cell[box] = cell, morton.MortonPairUpdate_X(num, col + 1), true
 		end
 	end
+print("")
 end
 
 --
 local function RemoveFromCell (box)
 	local col1, row1, col2, row2 = GetCells(box)
-
+print("R!", col1, row1, col2, row2)
 	for num in morton.Morton2_LineY(col1, row1, row2) do
 		for col = col1, col2 do
 			local cell = Occupied[num]
@@ -131,10 +134,11 @@ local function RemoveFromCell (box)
 			if cell then
 				cell[box] = nil
 			end
-
+--print("REMOVING",morton.MortonPair(num))
 			num = morton.MortonPairUpdate_X(num, col + 1)
 		end
 	end
+print("")
 end
 
 -- --
@@ -246,10 +250,33 @@ function M.Load (view)
 		return box1.m_id > box2.m_id
 	end
 
+	local FadeParams = {}
+
 	Links = link_group.LinkGroup(LinkLayer, Connect, NodeTouch, {
 		-- Can Link --
 		can_link = function(link1, link2)
 			return common.GetLinks():CanLink(link1.m_obj, link2.m_obj, link1.m_sub, link2.m_sub)
+		end,
+
+		-- Emphasize --
+		emphasize = function(item, how, link, source_to_target, not_owner)
+			local r, g, b = 1
+
+			if how == "began" then
+				if not not_owner then
+					r = 0
+				elseif not source_to_target then
+					r = .25
+				elseif links:CanLink(link.m_obj, item.m_obj, link.m_sub, item.m_sub) then
+					r, g, b = 1, 0, 1
+				else
+					r, g, b = .2, .3, .2
+				end
+			end
+
+			FadeParams.r, FadeParams.g, FadeParams.b = r, g or r, b or r
+
+			transition.to(item.fill, FadeParams)
 		end,
 
 		-- Gather --
