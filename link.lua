@@ -101,32 +101,31 @@ local DragTouch
 
 --
 local function GetCells (box)
-	local group = box.parent
-	local x, y = group.x, group.y
+	local bbounds = box.contentBounds
+	local x, y = ItemGroup:contentToLocal(bbounds.xMin, bbounds.yMin)
 	local col1, row1 = grid.PosToCell(x, y, CellDim, CellDim)
 	local col2, row2 = grid.PosToCell(x + box.contentWidth, y + box.contentHeight, CellDim, CellDim)
 
-	return col1 - 1, row1 - 1, col2 - 1, row2 - 1
+	return max(col1 - 1, 0), max(row1 - 1, 0), max(col2 - 1, 0), max(row2 - 1, 0)
 end
 
 --
 local function AddToCell (box)
 	local col1, row1, col2, row2 = GetCells(box)
-print("A!", col1, row1, col2, row2)
+
 	for num in morton.Morton2_LineY(col1, row1, row2) do
 		for col = col1, col2 do
 			local cell = Occupied[num] or {}
---print("ADDING",morton.MortonPair(num))
+
 			Occupied[num], num, cell[box] = cell, morton.MortonPairUpdate_X(num, col + 1), true
 		end
 	end
-print("")
 end
 
 --
 local function RemoveFromCell (box)
 	local col1, row1, col2, row2 = GetCells(box)
-print("R!", col1, row1, col2, row2)
+
 	for num in morton.Morton2_LineY(col1, row1, row2) do
 		for col = col1, col2 do
 			local cell = Occupied[num]
@@ -134,11 +133,10 @@ print("R!", col1, row1, col2, row2)
 			if cell then
 				cell[box] = nil
 			end
---print("REMOVING",morton.MortonPair(num))
+
 			num = morton.MortonPairUpdate_X(num, col + 1)
 		end
 	end
-print("")
 end
 
 -- --
@@ -164,7 +162,7 @@ local NodeTouch = link_group.BreakTouchFunc(function(node)
 end)
 
 -- --
-local CellFrac = .55
+local CellFrac = .65
 
 -- --
 local NCells = ceil(1 / CellFrac) + 1
