@@ -110,34 +110,33 @@ local function GetCells (box)
 end
 
 --
-local function AddToCell (box)
-	local col1, row1, col2, row2 = GetCells(box)
+local function WithCells (action)
+	return function(box)
+		local col1, row1, col2, row2 = GetCells(box)
+	
+		for num in morton.Morton2_LineY(col1, row1, row2) do
+			for col = col1, col2 do
+				local cnum = morton.MortonPairUpdate_X(num, col)
 
-	for num in morton.Morton2_LineY(col1, row1, row2) do
-		for col = col1, col2 do
-			local cell = Occupied[num] or {}
-
-			Occupied[num], num, cell[box] = cell, morton.MortonPairUpdate_X(num, col + 1), true
+				action(Occupied[cnum], box, cnum)
+			end
 		end
 	end
 end
 
 --
-local function RemoveFromCell (box)
-	local col1, row1, col2, row2 = GetCells(box)
+local AddToCell = WithCells(function(cell, box, num)
+	cell = cell or {}
 
-	for num in morton.Morton2_LineY(col1, row1, row2) do
-		for col = col1, col2 do
-			local cell = Occupied[num]
+	Occupied[num], cell[box] = cell, true
+end)
 
-			if cell then
-				cell[box] = nil
-			end
-
-			num = morton.MortonPairUpdate_X(num, col + 1)
-		end
+--
+local RemoveFromCell = WithCells(function(cell, box)
+	if cell then
+		cell[box] = nil
 	end
-end
+end)
 
 -- --
 local NodeLists
@@ -150,7 +149,6 @@ local function Connect (_, link1, link2, node)
 	local nl1, nl2 = NodeLists[id1], NodeLists[id2]
 
 	node.m_id1, node.m_id2 = id1, id2
-
 	nl1[node], nl2[node] = true, true
 end
 
@@ -162,10 +160,49 @@ local NodeTouch = link_group.BreakTouchFunc(function(node)
 end)
 
 -- --
-local CellFrac = .65
+local CellFrac = .35
 
 -- --
 local NCells = ceil(1 / CellFrac) + 1
+
+---
+--- DEBUG!
+---
+local function DrawCells ()
+	local N = 20
+	for i = 1, N do
+		local pos = i * CellDim
+		local h = display.newLine(ItemGroup, 0, pos, N * CellDim, pos)
+		local v = display.newLine(ItemGroup, pos, 0, pos, N * CellDim)
+		
+		h:setStrokeColor(0, 1, 0)
+		v:setStrokeColor(0, 0, 1)
+		h.strokeWidth = 3
+		v.strokeWidth = 3
+	end
+end
+
+local function FindName (box)
+	for _, v in pairs(Tagged) do
+		if v and v.m_box == box then
+			return v.m_name.text
+		end
+	end
+end
+
+local function Dump (how)
+	print(how)
+	for num, cell in pairs(Occupied) do
+		print("Cell: ", morton.MortonPair(num))
+		for box in pairs(cell) do
+			print("  Entry:", FindName(box))
+		end
+	end
+	print("")
+end
+---
+--- /DEBUG!
+---
 
 ---
 -- @pgroup view X
@@ -194,6 +231,7 @@ function M.Load (view)
 	links:SetRemoveFunc(function(object)
 		ToRemove[#ToRemove + 1], Tagged[object] = Tagged[object]
 	end)
+DrawCells()
 
 	--
 	local cw, ch = cont.width, cont.height
@@ -215,9 +253,14 @@ function M.Load (view)
 	DragTouch = touch.DragParentTouch_Child(1, {
 		clamp = "max", ref = "object",
 
-		on_move = function(_, box)
+		on_began = function(_, box)
 			RemoveFromCell(box)
+Dump("remove")
+		end,
+
+		on_ended = function(_, box)
 			AddToCell(box)
+Dump("add")
 		end
 	})
 
@@ -227,7 +270,7 @@ function M.Load (view)
 	drag:addEventListener("touch", touch.DragViewTouch(ItemGroup, {
 		x0 = "cur", y0 = "cur", xclamp = "view_max", yclamp = "view_max",
 
-		on_move = function(ig)
+		on_post_move = function(ig)
 			XOff, YOff = X0 - ig.x, Y0 - ig.y
 		end
 	}))
@@ -533,6 +576,24 @@ local function SortByIndex (a, b)
 	return a.m_link_index < b.m_link_index
 end
 
+-- --
+local FakeTouch
+
+--
+local function SpoofTouch (box, phase)
+	FakeTouch = FakeTouch or { id = "ignore_me", name = "touch" }
+
+	FakeTouch.target, FakeTouch.phase = box, phase
+
+	if phase == "began" then
+		FakeTouch.x, FakeTouch.y = box:localToContent(0, 0)
+	end
+
+	box:dispatchEvent(FakeTouch)
+
+	FakeTouch.target = nil
+end
+
 ---
 -- @pgroup view X
 function M.Enter (view)
@@ -587,6 +648,7 @@ function M.Enter (view)
 
 	local links, spot = common.GetLinks(), -1
 	local tag_db = links:GetTagDatabase()
+	local fake_touch
 
 	for _, object in ipairs(ToSort) do
 		repeat
@@ -599,7 +661,9 @@ function M.Enter (view)
 
 		Tagged[object], object.m_link_index = {	m_box = box, m_name = name }
 
-		AddToCell(box)
+		SpoofTouch(box, "began")
+		SpoofTouch(box, "moved")
+		SpoofTouch(box, "ended")
 	end
 
 	-- Now that our objects all exist, wire up any links and clear the list.
@@ -624,7 +688,7 @@ end
 
 --- DOCMAYBE
 function M.Unload ()
-	Group, ItemGroup, NodeLists, Occupied, Tagged, ToRemove, ToSort = nil
+	FakeTouch, Group, ItemGroup, NodeLists, Occupied, Tagged, ToRemove, ToSort = nil
 end
 
 -- Export the module.
