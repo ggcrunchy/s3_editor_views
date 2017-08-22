@@ -141,9 +141,23 @@ end)
 -- --
 local NodeLists
 
+-- --
+local LinkInUse = setmetatable({}, { __mode = "k" })
+
 --
 local function Connect (_, link1, link2, node)
-	node.m_link = common.GetLinks():LinkObjects(link1.m_obj, link2.m_obj, link1.m_sub, link2.m_sub)
+	local links, nlink = common.GetLinks()
+	local obj1, obj2, sub1, sub2 = link1.m_obj, link2.m_obj, link1.m_sub, link2.m_sub
+
+	for link in links:Links(obj1, sub1) do
+		if link:GetOtherObject(obj1) == obj2 then
+			nlink = link
+		end
+	end
+
+	node.m_link = nlink or links:LinkObjects(link1.m_obj, link2.m_obj, link1.m_sub, link2.m_sub)
+
+	LinkInUse[node.m_link] = true
 
 	local id1, id2 = link_group.GetLinkInfo(link1), link_group.GetLinkInfo(link2)
 	local nl1, nl2 = NodeLists[id1], NodeLists[id2]
@@ -152,11 +166,16 @@ local function Connect (_, link1, link2, node)
 	nl1[node], nl2[node] = true, true
 end
 
+-- Get a list of nodes matching the ID; since we'll just be nil'ing the entry anyway, supply the list-of-lists on failure (where that will no-op)
+local function GetList (id)
+	return NodeLists[id] or NodeLists
+end
+
 -- Lines (with "break" option) shown in between
 local NodeTouch = link_group.BreakTouchFunc(function(node)
 	node.m_link:Break()
 
-	NodeLists[node.m_id1][node], NodeLists[node.m_id2][node] = nil
+	GetList(node.m_id1)[node], GetList(node.m_id2)[node] = nil
 end)
 
 -- --
@@ -181,28 +200,12 @@ local function DrawCells ()
 		v.strokeWidth = 3
 	end
 end
-
-local function FindName (box)
-	for _, v in pairs(Tagged) do
-		if v and v.m_box == box then
-			return v.m_name.text
-		end
-	end
-end
-
-local function Dump (how)
-	print(how)
-	for num, cell in pairs(Occupied) do
-		print("Cell: ", morton.MortonPair(num))
-		for box in pairs(cell) do
-			print("  Entry:", FindName(box))
-		end
-	end
-	print("")
-end
 ---
 --- /DEBUG!
 ---
+
+-- --
+local DoingLinks
 
 ---
 -- @pgroup view X
@@ -255,12 +258,10 @@ DrawCells()
 
 		on_began = function(_, box)
 			RemoveFromCell(box)
-Dump("remove")
 		end,
 
 		on_ended = function(_, box)
 			AddToCell(box)
-Dump("add")
 		end
 	})
 
@@ -296,7 +297,7 @@ Dump("add")
 	Links = link_group.LinkGroup(LinkLayer, Connect, NodeTouch, {
 		-- Can Link --
 		can_link = function(link1, link2)
-			return common.GetLinks():CanLink(link1.m_obj, link2.m_obj, link1.m_sub, link2.m_sub)
+			return DoingLinks or common.GetLinks():CanLink(link1.m_obj, link2.m_obj, link1.m_sub, link2.m_sub)
 		end,
 
 		-- Emphasize --
@@ -528,9 +529,6 @@ local function AddObjectBox (group, tag_db, tag, object, sx, sy)
 	return box, ntext
 end
 
--- --
-local LinkInUse = setmetatable({}, { __mode = "k" })
-
 --
 local function FindLink (group, sub)
 	for i = 1, group.numChildren do
@@ -544,6 +542,8 @@ end
 
 --
 local function DoLinks (links, group, object)
+	DoingLinks = true
+
 	for i = 1, group.numChildren do
 		local lobj = group[i]
 		local lsub = lobj.m_sub
@@ -554,13 +554,15 @@ local function DoLinks (links, group, object)
 					local obj, osub = link:GetOtherObject(object)
 					local obox = Tagged[obj].m_box
 					local olink = FindLink(obox.m_lgroup, osub) or FindLink(obox.m_rgroup, osub)
-					local node = link_group.ConnectObjects(lobj, olink)
+					local node = Links:ConnectObjects(lobj, olink)
 
 					node.m_link, LinkInUse[link] = link, true
 				end
 			end
 		end
 	end
+
+	DoingLinks = false
 end
 
 --
@@ -627,8 +629,6 @@ function M.Enter (view)
 
 			for node in pairs(NodeLists[id]) do
 				link_group.Break(node)
-
-				NodeLists[node.m_id1], NodeLists[node.m_id2] = nil
 			end
 
 			NodeLists[id] = nil
