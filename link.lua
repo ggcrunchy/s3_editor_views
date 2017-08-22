@@ -141,23 +141,18 @@ end)
 -- --
 local NodeLists
 
--- --
-local LinkInUse = setmetatable({}, { __mode = "k" })
-
 --
 local function Connect (_, link1, link2, node)
 	local links, nlink = common.GetLinks()
-	local obj1, obj2, sub1, sub2 = link1.m_obj, link2.m_obj, link1.m_sub, link2.m_sub
+	local obj1, obj2 = link1.m_obj, link2.m_obj
 
-	for link in links:Links(obj1, sub1) do
+	for link in links:Links(obj1, link1.m_sub) do
 		if link:GetOtherObject(obj1) == obj2 then
 			nlink = link
 		end
 	end
 
 	node.m_link = nlink or links:LinkObjects(link1.m_obj, link2.m_obj, link1.m_sub, link2.m_sub)
-
-	LinkInUse[node.m_link] = true
 
 	local id1, id2 = link_group.GetLinkInfo(link1), link_group.GetLinkInfo(link2)
 	local nl1, nl2 = NodeLists[id1], NodeLists[id2]
@@ -183,26 +178,6 @@ local CellFrac = .35
 
 -- --
 local NCells = ceil(1 / CellFrac) + 1
-
----
---- DEBUG!
----
-local function DrawCells ()
-	local N = 20
-	for i = 1, N do
-		local pos = i * CellDim
-		local h = display.newLine(ItemGroup, 0, pos, N * CellDim, pos)
-		local v = display.newLine(ItemGroup, pos, 0, pos, N * CellDim)
-		
-		h:setStrokeColor(0, 1, 0)
-		v:setStrokeColor(0, 0, 1)
-		h.strokeWidth = 3
-		v.strokeWidth = 3
-	end
-end
----
---- /DEBUG!
----
 
 -- --
 local DoingLinks
@@ -234,7 +209,6 @@ function M.Load (view)
 	links:SetRemoveFunc(function(object)
 		ToRemove[#ToRemove + 1], Tagged[object] = Tagged[object]
 	end)
-DrawCells()
 
 	--
 	local cw, ch = cont.width, cont.height
@@ -542,27 +516,27 @@ end
 
 --
 local function DoLinks (links, group, object)
-	DoingLinks = true
-
 	for i = 1, group.numChildren do
 		local lobj = group[i]
 		local lsub = lobj.m_sub
 
 		if lsub then
 			for link in links:Links(object, lsub) do
-				if not LinkInUse[link] then
+				if DoingLinks == true then
+					DoingLinks = {}
+				end
+
+				if not DoingLinks[link] then
 					local obj, osub = link:GetOtherObject(object)
 					local obox = Tagged[obj].m_box
 					local olink = FindLink(obox.m_lgroup, osub) or FindLink(obox.m_rgroup, osub)
 					local node = Links:ConnectObjects(lobj, olink)
 
-					node.m_link, LinkInUse[link] = link, true
+					node.m_link, DoingLinks[link] = link, true
 				end
 			end
 		end
 	end
-
-	DoingLinks = false
 end
 
 --
@@ -648,7 +622,6 @@ function M.Enter (view)
 
 	local links, spot = common.GetLinks(), -1
 	local tag_db = links:GetTagDatabase()
-	local fake_touch
 
 	for _, object in ipairs(ToSort) do
 		repeat
@@ -667,11 +640,15 @@ function M.Enter (view)
 	end
 
 	-- Now that our objects all exist, wire up any links and clear the list.
+	DoingLinks = true
+
 	for i = #ToSort, 1, -1 do
 		ConnectObject(ToSort[i])
 
 		ToSort[i] = nil
 	end
+
+	DoingLinks = false
 
 	--
 	Group.isVisible = true
