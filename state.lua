@@ -24,9 +24,13 @@
 --
 
 -- Modules --
+local actions = require("s3_utils.state.actions")
 local common = require("s3_editor.Common")
+local dialog = require("s3_editor.Dialog")
 local events = require("s3_editor.Events")
 local global_events = require("s3_utils.global_events")
+local list_views = require("s3_editor.ListViews")
+local predicates = require("s3_utils.state.predicates")
 
 -- Exports --
 local M = {}
@@ -43,10 +47,11 @@ function M.Load (view)
 
 	-- TODO: common.AttachLinkInfo(rep, ...)
 
-	-- Actions!
-	-- Predicates...
-	-- Monitors
-	-- The first two (at least) would be new groups of objects (like dots, event blocks, etc.)
+	-- Actions and basic predicates need 1D grids to select type, plus lists
+	-- ^^^ Those probably need captions / titles too, since the types are pretty low-level and conceptual
+	-- Binary and complex predicates just need lists
+	-- Can we unify the three predicate types in a single list? (trouble with name clashes?)
+	-- Much of this can be adapted from the audio view
 end
 
 ---
