@@ -44,7 +44,7 @@ function M.Load (view)
 	-- TODO: common.AttachLinkInfo(rep, ...)
 
 	-- Actions!
-	-- Conditions...
+	-- Predicates...
 	-- Monitors
 	-- The first two (at least) would be new groups of objects (like dots, event blocks, etc.)
 end

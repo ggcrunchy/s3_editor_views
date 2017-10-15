@@ -411,7 +411,7 @@ local function AddObjectBox (group, tag_db, tag, object, sx, sy)
 		--
 		local cur = is_source and rgroup or lgroup
 		local n, link = cur.numChildren, display.newCircle(cur, 0, 0, 5)
-		local stext = display.newText(cur, sub, 0, 0, native.systemFont, 12)
+		local stext = display.newText(cur, iinfo and iinfo.friendly_name or sub, 0, 0, native.systemFont, 12)
 
 		link.strokeWidth = 1
 
