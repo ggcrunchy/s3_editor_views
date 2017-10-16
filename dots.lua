@@ -46,7 +46,7 @@ local GridView = grid_views.EditErase(Dialog, dots.GetTypes())
 --- DOCME
 -- @pgroup view X
 function M.Load (view)
-	GridView:Load(view, "Dot", "Current dot")
+	GridView:Load(view, "Dot", "Current dot: %s")
 
 	help.AddHelp("Dot", {
 		current = "The current dot type. When painting, cells are populated with this dot.",

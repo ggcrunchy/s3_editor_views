@@ -43,7 +43,7 @@ local GridView = grid_views.EditErase(Dialog, enemies.GetTypes())
 --- DOCME
 -- @pgroup view X
 function M.Load (view)
-	GridView:Load(view, "Enemy", "Current enemy")
+	GridView:Load(view, "Enemy", "Current enemy: %s")
 
 	help.AddHelp("Enemy", {
 		current = "The current enemy type. When painting, cells are populated with this type's spawn point.",

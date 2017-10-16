@@ -298,7 +298,10 @@ function M.Load (view)
 	Grid:addEventListener("show", ShowHide)
 
 	--
-	CurrentEvent = grid1D.OptionsHGrid(view, "18.75%", "10.4%", "25%", "20.8%", "Current event")
+	Types = event_blocks.GetTypes()
+
+	--
+	CurrentEvent = grid1D.OptionsHGrid(view, "18.75%", "10.4%", "25%", "20.8%", "Current event: %s", { types = Types })
 
 	--
 	local choices = { "Paint", "Edit", "Stretch", "Erase" }
@@ -343,9 +346,6 @@ function M.Load (view)
 
 	--
 	TryOption = grid.ChoiceTrier(choices)
-
-	--
-	Types = event_blocks.GetTypes()
 
 	--
 	TileImages = common.SpriteSetFromThumbs("EventBlock", Types)

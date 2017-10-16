@@ -30,7 +30,7 @@ local dialog = require("s3_editor.Dialog")
 local events = require("s3_editor.Events")
 local global_events = require("s3_utils.global_events")
 local list_views = require("s3_editor.ListViews")
-local predicates = require("s3_utils.state.predicates")
+local values = require("s3_utils.state.values")
 
 -- Exports --
 local M = {}
