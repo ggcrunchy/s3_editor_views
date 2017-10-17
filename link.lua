@@ -173,6 +173,10 @@ local NodeTouch = link_group.BreakTouchFunc(function(node)
 	GetList(node.m_id1)[node], GetList(node.m_id2)[node] = nil
 end)
 
+-- TODO: Add some way to call up an overlay to label / order a list
+-- This could be a link info option... probably best, so we don't have to track it in all build info
+-- That said, could be more general with the overlays, e.g. this would be where "tooltip" stuff is shown too
+
 -- --
 local CellFrac = .35
 

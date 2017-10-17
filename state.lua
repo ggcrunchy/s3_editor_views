@@ -71,9 +71,8 @@ function M.Load (view)
 	ActionTypes = actions.GetTypes()
 	ValueTypes = values.GetTypes()
 
-	-- For actions, values, and complex values:
+	-- For actions, values:
 	-- Label (description), listbox (choices), button (add), button (remove), listbox (choices)
-	-- TODO: be able to keep these nicely separated but still save, load, and build this whole mess :/
 
 	--
 	Group.isVisible = false
