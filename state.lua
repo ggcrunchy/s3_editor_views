@@ -29,8 +29,12 @@ local common = require("s3_editor.Common")
 local dialog = require("s3_editor.Dialog")
 local events = require("s3_editor.Events")
 local global_events = require("s3_utils.global_events")
+local grid1D = require("corona_ui.widgets.grid_1D")
 local list_views = require("s3_editor.ListViews")
 local values = require("s3_utils.state.values")
+
+-- Corona globals --
+local display = display
 
 -- Exports --
 local M = {}
@@ -38,9 +42,19 @@ local M = {}
 -- --
 local Global
 
+-- --
+local Group
+
+-- --
+local ActionTypes, ValueTypes
+
 ---
 -- @pgroup view X
 function M.Load (view)
+	--
+	Group = display.newGroup()
+
+	--
 	Global = { name = "Global" }
 
 	common.BindRepAndValuesWithTag(view, Global, common.GetTag(false, global_events.EditorEvent))
@@ -52,22 +66,35 @@ function M.Load (view)
 	-- Binary and complex predicates just need lists
 	-- Can we unify the three predicate types in a single list? (trouble with name clashes?)
 	-- Much of this can be adapted from the audio view
+
+	--
+	ActionTypes = actions.GetTypes()
+	ValueTypes = values.GetTypes()
+
+	-- For actions, values, and complex values:
+	-- Label (description), listbox (choices), button (add), button (remove), listbox (choices)
+	-- TODO: be able to keep these nicely separated but still save, load, and build this whole mess :/
+
+	--
+	Group.isVisible = false
+
+	view:insert(Group)
 end
 
 ---
 -- @pgroup view X
 function M.Enter (view)
-
+	Group.isVisible = true
 end
 
 --- DOCMAYBE
 function M.Exit ()
-
+	Group.isVisible = false
 end
 
 --- DOCMAYBE
 function M.Unload ()
-	Global = nil
+	Global, Group = nil
 end
 
 -- Listen to events.
