@@ -61,10 +61,9 @@ local ActionDialog = dialog.DialogWrapper(actions.EditorEvent)
 local ValueDialog = dialog.DialogWrapper(values.EditorEvent)
 
 -- --
-local ActionView = list_views.EditErase(ActionDialog, function()
+local ActionView, ValueView = list_views.EditErase(ActionDialog, function()
 	return ActionChoices:GetSelection()
-end)
-local ValueView = list_views.EditErase(ValueDialog, function()
+end), list_views.EditErase(ValueDialog, function()
 	return ValueChoices:GetSelection()
 end)
 
@@ -79,23 +78,23 @@ local function Lists (str, prefix, view, top, r, g, b, names)
 
 	common_ui.Frame(list, r, g, b)
 
-	local types = table_view_patterns.Listbox(Group, {
+	local choices = table_view_patterns.Listbox(Group, {
 		width = "30%", height = list.height,
 	})
 
-	layout.PutRightOf(types, list, "5%")
-	layout.BottomAlignWith(types, list)
+	layout.PutRightOf(choices, list, "5%")
+	layout.BottomAlignWith(choices, list)
 
 	local ttext = display.newText(Group, "Types", 0, 0, native.systemFont, layout.ResolveY("5%"))
 
-	layout.LeftAlignWith(ttext, types)
-	layout.PutAbove(ttext, types)
+	layout.LeftAlignWith(ttext, choices)
+	layout.PutAbove(ttext, choices)
 
 	for _, name in ipairs(names) do
-		types:Append(name)
+		choices:Append(name)
 	end
 
-	return list, bottom, types
+	return list, bottom, choices
 end
 
 -- --
@@ -119,11 +118,11 @@ function M.Load (view)
 	ValueTypes = values.GetTypes()
 
 	--
-	local action_list, abot, atypes = Lists("Actions", "action", ActionView, "16.67%", 0, 0, 1, ActionTypes)
-	local value_list, vbot, vtypes = Lists("Values", "value", ValueView, abot + layout.ResolveY("3.125%"), 0, 1, 0, ValueTypes)
+	local action_list, abot, achoices = Lists("Actions", "action", ActionView, "16.67%", 0, 0, 1, ActionTypes)
+	local value_list, vbot, vchoices = Lists("Values", "value", ValueView, abot + layout.ResolveY("3.125%"), 0, 1, 0, ValueTypes)
 
-	ActionChoices = atypes
-	ValueChoices = vtypes
+	ActionChoices = achoices
+	ValueChoices = vchoices
 
 	--
 	Group.isVisible = false
@@ -133,13 +132,13 @@ function M.Load (view)
 	--
 	help.AddHelp("State", {
 		action = action_list, value = value_list,
-		atypes = atypes, vtypes = vtypes
+		achoices = achoices, vchoices = vchoices
 	})
 	help.AddHelp("State", {
 		action = "Add or remove actions.",
 		value = "Add or remove values.",
-		atypes = "Action type to add.",
-		vtypes = "Value type to add."
+		achoices = "Action type to add.",
+		vchoices = "Value type to add."
 	})
 end
 
