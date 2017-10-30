@@ -208,10 +208,17 @@ function M.Load (view)
 	links:SetAssignFunc(function(object)
 		Tagged[object] = false -- exists but no box yet (might already have links, though)
 
+		-- has template sublinks?
+			-- attach appropriate box(es) (or get data ready, anyhow)
+			-- put appropriate data in instance <-> label map
+
 		object.m_link_index, Index = Index, Index + 1
 	end)
 	links:SetRemoveFunc(function(object)
 		ToRemove[#ToRemove + 1], Tagged[object] = Tagged[object]
+
+		-- has template sublinks?
+			-- remove instance / label from map
 	end)
 
 	--
@@ -383,6 +390,28 @@ local function FindBottom (group)
 	return y2
 end
 
+--
+local function ArrayBox (group, object, is_source)
+	-- "+" -> append instance
+	-- List (anchored at top?) of entries, each with:
+		-- "X", to delete the entry
+		-- "up / down" (except at top / bottom), to move entry within list
+		-- Index text ("1", "2", ...)
+		-- Link
+	-- The "+" and "X" will resize the box
+		-- Probably no sensible way to bound the size, owing to link visibility
+	-- The "up / down" will adjust most if not all instance <-> label mappings for this object
+end
+
+--
+local function SetBox (group, object, is_source)
+	-- "+" -> add new instance with default label
+	-- Per-instance boxes, each with:
+		-- "X", to delete this entry and remove the box
+		-- Name field, to assign the label
+		-- Link
+end
+
 -- --
 local BoxID = 0
 
@@ -411,8 +440,13 @@ local function AddObjectBox (group, tag_db, tag, object, sx, sy)
 		elseif itype == "string" then
 			text = iinfo
 		end
-
-		--
+-- TODO: handle any templates... then see if array or set
+-- These each have some UI considerations
+	-- Auxiliary box(es) of links, rather than raw links
+	-- Do a raw link_group.Connect(), omitting touch handler to avoid node
+	-- Must also track some state for save / load / build, for labels
+-- iinfo and iinfo.is_set?
+	-- In either case, have text, a "+" to add an entry, then a link to the box(es) of links
 		local cur = is_source and rgroup or lgroup
 		local n, link = cur.numChildren, display.newCircle(cur, 0, 0, 5)
 		local stext = display.newText(cur, iinfo and iinfo.friendly_name or sub, 0, 0, native.systemFont, 12)
@@ -608,6 +642,9 @@ function M.Enter (view)
 			for node in pairs(NodeLists[id]) do
 				link_group.Break(node)
 			end
+
+			-- release template instances
+			-- likewise, kill attached boxes
 
 			NodeLists[id] = nil
 
