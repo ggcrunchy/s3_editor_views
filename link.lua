@@ -426,8 +426,32 @@ local function AddObjectBox (group, tag_db, tag, object, sx, sy)
 	bgroup:insert(lgroup)
 	bgroup:insert(rgroup)
 
-	for _, sub in tag_db:Sublinks(tag) do
-		local iinfo, text = info and info[sub]
+	--
+	local templates
+
+	for _, sub in tag_db:Sublinks(tag, "templates") do
+		local iinfo = info and info[sub]
+		local is_set = iinfo and iinfo.is_set
+
+		templates = templates or {} 
+		-- accumulate these and make box(es)
+		-- TODO: handle any templates... then see if array or set
+		-- These each have some UI considerations
+			-- Auxiliary box(es) of links, rather than raw links
+			-- Do a raw link_group.Connect(), omitting touch handler to avoid node
+			-- Must also track some state for save / load / build, for labels
+		-- Do these have their own box IDs?
+	end
+
+	--
+	for _, sub in tag_db:Sublinks(tag, "instances") do
+		-- populate box(es), in case of a load
+		-- must be able to tie these to the object
+			-- probably the same state that must maintain for save / load
+	end
+
+	for _, sub in tag_db:Sublinks(tag, "no_instances") do
+		local iinfo, tstate, text = info and info[sub], templates and templates[sub]
 		local itype, is_source = iinfo and type(iinfo), tag_db:ImplementedBySublink(tag, sub, "event_source")
 
 		--
@@ -440,12 +464,7 @@ local function AddObjectBox (group, tag_db, tag, object, sx, sy)
 		elseif itype == "string" then
 			text = iinfo
 		end
--- TODO: handle any templates... then see if array or set
--- These each have some UI considerations
-	-- Auxiliary box(es) of links, rather than raw links
-	-- Do a raw link_group.Connect(), omitting touch handler to avoid node
-	-- Must also track some state for save / load / build, for labels
--- iinfo and iinfo.is_set?
+-- template: iinfo and iinfo.is_set?
 	-- In either case, have text, a "+" to add an entry, then a link to the box(es) of links
 		local cur = is_source and rgroup or lgroup
 		local n, link = cur.numChildren, display.newCircle(cur, 0, 0, 5)
@@ -470,9 +489,15 @@ local function AddObjectBox (group, tag_db, tag, object, sx, sy)
 		end
 
 		--
-		Links:AddLink(BoxID, not is_source, link)
+		if tstate then
+			-- TODO: just a link_group.Connect(x, y, false, Links:GetGroups())?
+			-- also make link invisible
+			-- also also (above): add a "+" button (with either an AddToArray or AddToSet handler)
+		else
+			Links:AddLink(BoxID, not is_source, link)
 
-		link.m_obj, link.m_sub = object, sub
+			link.m_obj, link.m_sub = object, sub
+		end
 
 		--
 		local w, line = layout.RightOf(ro) - layout.LeftOf(lo), (cur.m_line or 0) + 1
