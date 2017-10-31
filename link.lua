@@ -567,12 +567,46 @@ local function AddObjectBox (group, tag_db, tag, object, sx, sy)
 end
 
 --
-local function FindLink (group, sub)
-	for i = 1, group.numChildren do
-		local item = group[i]
+local Group1, Group2 = {}, {}
 
-		if item.m_sub == sub then
-			return item
+--
+local function AuxGroups (groups, index)
+	index = index + 1
+
+	local cur = groups[index]
+
+	if cur then
+		return index, cur
+	end
+end
+
+--
+local function Groups (box)
+	Group1, Group2 = Group2, Group1
+
+	local group = Group1
+
+	for i = #group, 1, -1 do
+		group[i] = nil
+	end
+
+	group[#group + 1] = box.m_lgroup
+	group[#group + 1] = box.m_rgroup
+
+	-- TODO: add sub-boxes...
+
+	return AuxGroups, group, 0
+end
+
+--
+local function FindLink (box, sub)
+	for _, group in Groups(box) do
+		for i = 1, group.numChildren do
+			local item = group[i]
+
+			if item.m_sub == sub then
+				return item
+			end
 		end
 	end
 end
@@ -591,9 +625,7 @@ local function DoLinks (links, group, object)
 
 				if not DoingLinks[link] then
 					local obj, osub = link:GetOtherObject(object)
-					local obox = Tagged[obj].m_box
-					local olink = FindLink(obox.m_lgroup, osub) or FindLink(obox.m_rgroup, osub)
-					local node = Links:ConnectObjects(lobj, olink)
+					local node = Links:ConnectObjects(lobj, FindLink(Tagged[obj].m_box, osub))
 
 					node.m_link, DoingLinks[link] = link, true
 				end
@@ -606,8 +638,9 @@ end
 local function ConnectObject (object)
 	local links, box = common.GetLinks(), Tagged[object].m_box
 
-	DoLinks(links, box.m_lgroup, object)
-	DoLinks(links, box.m_rgroup, object)
+	for _, group in Groups(box) do
+		DoLinks(links, group, object)
+	end
 end
 
 -- Helper to sort objects in creation order
