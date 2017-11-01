@@ -391,25 +391,67 @@ local function FindBottom (group)
 end
 
 --
-local function ArrayBox (group, object, is_source)
-	-- "+" -> append instance
-	-- List (anchored at top?) of entries, each with:
-		-- "X", to delete the entry
-		-- "up / down" (except at top / bottom), to move entry within list
-		-- Index text ("1", "2", ...)
-		-- Link
-	-- The "+" and "X" will resize the box
-		-- Probably no sensible way to bound the size, owing to link visibility
-	-- The "up / down" will adjust most if not all instance <-> label mappings for this object
+local function Arrange (is_source, offset, a, b, c, d, e, f)
+	if is_source then
+		if f then -- quick and dirty alternative to some sort of gather -> sort -> unpack
+			a, b, c, d, e, f = f, e, d, c, b, a
+		elseif e then
+			a, b, c, d, e = e, d, c, b, a
+		elseif d then
+			a, b, c, d = d, c, b, a
+		elseif c then
+			a, b, c = c, b, a
+		elseif b then
+			a, b = b, a
+		end
+
+		return "PutLeftOf", -offset, a, b, c, d, e, f
+	else
+		return "PutRightOf", offset, a, b, c, d, e, f
+	end
 end
 
 --
-local function SetBox (group, object, is_source)
-	-- "+" -> add new instance with default label
-	-- Per-instance boxes, each with:
-		-- "X", to delete this entry and remove the box
-		-- Name field, to assign the label
+local function SubBox (group, object, is_source, is_set)
+	local a, b, c, d, e
+
+	-- a = delete button
+	-- local link = ...
+
+	-- List (anchored at top?) of entries, each with:
 		-- Link
+	if is_set then
+		-- "+" -> append instance
+		-- Name field, to assign the label
+		-- insert / delete into / from set
+		-- b = name field
+		-- c = link
+	else
+		-- "+" -> add new instance with default label
+		-- 
+		-- insert / delete into / from array
+		-- "up / down" (except at top / bottom), to move entry within list
+			-- Will adjust most if not all instance <-> label mappings for this object
+		-- if not at top then
+			-- b = up
+		-- if not at bottom then
+			-- b or c = down
+		-- b, c, or d = Index text ("1", "2", ...)
+		-- c, d, or e = link
+	end
+		-- "X", to delete the entry
+	-- The "+" and "X" will resize the box
+		-- Probably no sensible way to bound the size, owing to link visibility
+
+--	local method, offset, a, b, c, d, e = Arrange(is_source, 5, link, b, c, d, e)
+-- Put a somewhere
+-- add b relative to a
+-- add c relative to b
+-- if d, add relative to c
+-- if e, add relative to e
+-- ^^^ Do this wherever Add / Delete is... also on initial population
+-- Keep a tally to allow reserving room?
+-- Need to account for empty case, so minimum space (probably also to include "+")
 end
 
 -- --
@@ -464,8 +506,7 @@ local function AddObjectBox (group, tag_db, tag, object, sx, sy)
 		elseif itype == "string" then
 			text = iinfo
 		end
--- template: iinfo and iinfo.is_set?
-	-- In either case, have text, a "+" to add an entry, then a link to the box(es) of links
+
 		local cur = is_source and rgroup or lgroup
 		local n, link = cur.numChildren, display.newCircle(cur, 0, 0, 5)
 		local stext = display.newText(cur, iinfo and iinfo.friendly_name or sub, 0, 0, native.systemFont, 12)
@@ -473,15 +514,8 @@ local function AddObjectBox (group, tag_db, tag, object, sx, sy)
 		link.strokeWidth = 1
 
 		--
-		local method, offset, lo, ro
+		local method, offset, lo, ro = Arrange(is_source, 5, link, stext)
 
-		if is_source then
-			method, offset, lo, ro = "PutLeftOf", -5, stext, link
-		else
-			method, offset, lo, ro = "PutRightOf", 5, link, stext
-		end
-
-		--
 		layout[method](stext, link, offset)
 
 		if text then
@@ -492,7 +526,6 @@ local function AddObjectBox (group, tag_db, tag, object, sx, sy)
 		if tstate then
 			-- TODO: just a link_group.Connect(x, y, false, Links:GetGroups())?
 			-- also make link invisible
-			-- also also (above): add a "+" button (with either an AddToArray or AddToSet handler)
 		else
 			Links:AddLink(BoxID, not is_source, link)
 
@@ -593,7 +626,9 @@ local function Groups (box)
 	group[#group + 1] = box.m_lgroup
 	group[#group + 1] = box.m_rgroup
 
-	-- TODO: add sub-boxes...
+	for i = 1, #(box.m_attachments or "") do
+		group[#group + 1] = box.m_attachments[i].group
+	end
 
 	return AuxGroups, group, 0
 end
