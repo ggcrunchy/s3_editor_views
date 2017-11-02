@@ -412,14 +412,20 @@ local function Arrange (is_source, offset, a, b, c, d, e, f)
 end
 
 --
-local function SubBox (group, object, is_source, is_set)
-	local a, b, c, d, e
+local function SubBox (group, object, sub, is_source, is_set)
+	local sbgroup, a, b, c, d, e = display.newGroup()
+
+	--
+	sbgroup.links = display.newGroup()
+
+	group:insert(sbgroup)
+	sbgroup:insert(sbgroup.links)
 
 	-- a = delete button
 	-- local link = ...
 
 	-- List (anchored at top?) of entries, each with:
-		-- Link
+		-- Link (invisible)
 	if is_set then
 		-- "+" -> append instance
 		-- Name field, to assign the label
@@ -452,10 +458,28 @@ local function SubBox (group, object, is_source, is_set)
 -- ^^^ Do this wherever Add / Delete is... also on initial population
 -- Keep a tally to allow reserving room?
 -- Need to account for empty case, so minimum space (probably also to include "+")
+	return sbgroup
 end
 
 -- --
 local BoxID = 0
+
+--
+local function SublinkInfo (info, tag_db, tag, sub)
+	local iinfo = info and info[sub]
+	local itype, is_source = iinfo and type(iinfo), tag_db:ImplementedBySublink(tag, sub, "event_source")
+
+	--
+	if itype == "table" then
+		if iinfo.is_source ~= nil then
+			is_source = iinfo.is_source
+		end
+
+		return iinfo, is_source, iinfo.text
+	else
+		return nil, is_source, itype == "string" and iinfo or nil
+	end
+end
 
 --
 local function AddObjectBox (group, tag_db, tag, object, sx, sy)
@@ -469,20 +493,18 @@ local function AddObjectBox (group, tag_db, tag, object, sx, sy)
 	bgroup:insert(rgroup)
 
 	--
-	local templates
+	local attachments
 
 	for _, sub in tag_db:Sublinks(tag, "templates") do
-		local iinfo = info and info[sub]
+		local iinfo, is_source = info and info[sub] = SublinkInfo(info, tag_db, tag, sub)
 		local is_set = iinfo and iinfo.is_set
 
-		templates = templates or {} 
-		-- accumulate these and make box(es)
-		-- TODO: handle any templates... then see if array or set
+		attachments = attachments or {}
 		-- These each have some UI considerations
 			-- Auxiliary box(es) of links, rather than raw links
-			-- Do a raw link_group.Connect(), omitting touch handler to avoid node
 			-- Must also track some state for save / load / build, for labels
-		-- Do these have their own box IDs?
+		attachments[#attachments + 1] = SubBox(group, object, sub, is_source, is_set)
+		attachments[sub] = #attachments
 	end
 
 	--
@@ -490,23 +512,12 @@ local function AddObjectBox (group, tag_db, tag, object, sx, sy)
 		-- populate box(es), in case of a load
 		-- must be able to tie these to the object
 			-- probably the same state that must maintain for save / load
+		-- should we just do this when iterating templates?
+			-- somehow need to keep per-object distinction on hand anyhow...
 	end
 
 	for _, sub in tag_db:Sublinks(tag, "no_instances") do
-		local iinfo, tstate, text = info and info[sub], templates and templates[sub]
-		local itype, is_source = iinfo and type(iinfo), tag_db:ImplementedBySublink(tag, sub, "event_source")
-
-		--
-		if itype == "table" then
-			if iinfo.is_source ~= nil then
-				is_source = iinfo.is_source
-			end
-
-			text = iinfo.text
-		elseif itype == "string" then
-			text = iinfo
-		end
-
+		local ai, iinfo, text, is_source = attachments and attachments[sub], SublinkInfo(info, tag_db, tag, sub)
 		local cur = is_source and rgroup or lgroup
 		local n, link = cur.numChildren, display.newCircle(cur, 0, 0, 5)
 		local stext = display.newText(cur, iinfo and iinfo.friendly_name or sub, 0, 0, native.systemFont, 12)
@@ -523,9 +534,10 @@ local function AddObjectBox (group, tag_db, tag, object, sx, sy)
 		end
 
 		--
-		if tstate then
-			-- TODO: just a link_group.Connect(x, y, false, Links:GetGroups())?
-			-- also make link invisible
+		if ai then
+			local sbox = attachments[ai]
+			-- TODO: just a link_group.Connect(link, sbox, false, Links:GetGroups())?
+			link.isVisible = false
 		else
 			Links:AddLink(BoxID, not is_source, link)
 
@@ -575,7 +587,7 @@ local function AddObjectBox (group, tag_db, tag, object, sx, sy)
 	local box = display.newRoundedRect(bgroup, (sx + .5) * CellDim, (sy + .5) * CellDim, w, y2 - y1 + 30, 12)
 	local hw, y = box.width / 2, box.y - box.height / 2 + 15
 
-	box.m_lgroup, box.m_rgroup, box.m_id = lgroup, rgroup, BoxID
+	box.m_attachments, box.m_lgroup, box.m_rgroup, box.m_id = attachments, lgroup, rgroup, BoxID
 
 	Align(lgroup, false)
 	Align(lgroup, true)
@@ -627,7 +639,7 @@ local function Groups (box)
 	group[#group + 1] = box.m_rgroup
 
 	for i = 1, #(box.m_attachments or "") do
-		group[#group + 1] = box.m_attachments[i].group
+		group[#group + 1] = box.m_attachments[i].links
 	end
 
 	return AuxGroups, group, 0
@@ -724,22 +736,41 @@ function M.Enter (view)
 ]]
 
 	-- Remove any dead objects.
+	local links = common.GetLinks()
+	local tag_db = links:GetTagDatabase()
+
 	for i = #ToRemove, 1, -1 do
 		local state = ToRemove[i]
 
 		if state then
 			--
 			local box = state.m_box
-			local id = box.m_id
+			local id, tag = box.m_id
 
 			for node in pairs(NodeLists[id]) do
 				link_group.Break(node)
 			end
 
-			-- release template instances
-			-- likewise, kill attached boxes
-
 			NodeLists[id] = nil
+
+			--
+			for i = 1, #(box.m_attachments or "") do
+				local sbox = box.m_attachments[i]
+
+				for j = 1, sbox.numChildren do
+					tag = tag or tag_db:GetTag(sbox[j].m_obj)
+
+					local instance = sbox[j].m_sub -- ??
+					
+					-- remove from some master list?
+
+					tag_db:Release(tag, instance)
+				end
+
+				-- Remove from cell?
+
+				sbox:removeSelf()
+			end
 
 			--
 			RemoveFromCell(box)
@@ -754,8 +785,7 @@ function M.Enter (view)
 	-- Dole out spots to any new objects in creation order, adding boxes there.
 	sort(ToSort, SortByIndex)
 
-	local links, spot = common.GetLinks(), -1
-	local tag_db = links:GetTagDatabase()
+	local spot = -1
 
 	for _, object in ipairs(ToSort) do
 		repeat
