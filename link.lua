@@ -110,7 +110,7 @@ local function GetCells (box)
 end
 
 --
-local function WithCells (action)
+local function VisitCells (action)
 	return function(box)
 		local col1, row1, col2, row2 = GetCells(box)
 	
@@ -125,14 +125,14 @@ local function WithCells (action)
 end
 
 --
-local AddToCell = WithCells(function(cell, box, num)
+local AddToCell = VisitCells(function(cell, box, num)
 	cell = cell or {}
 
 	Occupied[num], cell[box] = cell, true
 end)
 
 --
-local RemoveFromCell = WithCells(function(cell, box)
+local RemoveFromCell = VisitCells(function(cell, box)
 	if cell then
 		cell[box] = nil
 	end
@@ -173,10 +173,6 @@ local NodeTouch = link_group.BreakTouchFunc(function(node)
 	GetList(node.m_id1)[node], GetList(node.m_id2)[node] = nil
 end)
 
--- TODO: Add some way to call up an overlay to label / order a list
--- This could be a link info option... probably best, so we don't have to track it in all build info
--- That said, could be more general with the overlays, e.g. this would be where "tooltip" stuff is shown too
-
 -- --
 local CellFrac = .35
 
@@ -186,12 +182,46 @@ local NCells = ceil(1 / CellFrac) + 1
 -- --
 local DoingLinks
 
+--
+local GroupList1, GroupList2
+
+--
+local function AuxGroups (groups, index)
+	index = index + 1
+
+	local cur = groups[index]
+
+	if cur then
+		return index, cur
+	end
+end
+
+--
+local function Groups (box)
+	GroupList1, GroupList2 = GroupList2, GroupList1
+
+	local glist = GroupList1
+
+	for i = #glist, 1, -1 do
+		glist[i] = nil
+	end
+
+	glist[#glist + 1] = box.m_lgroup
+	glist[#glist + 1] = box.m_rgroup
+
+	for i = 1, #(box.m_attachments or "") do
+		glist[#glist + 1] = box.m_attachments[i].links
+	end
+
+	return AuxGroups, glist, 0
+end
+
 ---
 -- @pgroup view X
 function M.Load (view)
 	--
 	Group, ItemGroup, LinkLayer = display.newGroup(), display.newGroup(), display.newGroup()
-	Index, Occupied, NodeLists, Tagged, ToRemove, ToSort = 1, {}, {}, {}, {}, {}
+	Index, GroupList1, GroupList2, Occupied, NodeLists, Tagged, ToRemove, ToSort = 1, {}, {}, {}, {}, {}, {}, {}
 
 	view:insert(Group)
 
@@ -332,8 +362,9 @@ function M.Load (view)
 			sort(seen, SortByID)
 
 			for _, box in ipairs(seen) do
-				AddFromGroup(items, box.m_lgroup)
-				AddFromGroup(items, box.m_rgroup)
+				for _, group in Groups(box) do
+					AddFromGroup(items, group)
+				end
 			end
 
 			for k in pairs(seen) do
@@ -612,40 +643,6 @@ local function AddObjectBox (group, tag_db, tag, object, sx, sy)
 end
 
 --
-local Group1, Group2 = {}, {}
-
---
-local function AuxGroups (groups, index)
-	index = index + 1
-
-	local cur = groups[index]
-
-	if cur then
-		return index, cur
-	end
-end
-
---
-local function Groups (box)
-	Group1, Group2 = Group2, Group1
-
-	local group = Group1
-
-	for i = #group, 1, -1 do
-		group[i] = nil
-	end
-
-	group[#group + 1] = box.m_lgroup
-	group[#group + 1] = box.m_rgroup
-
-	for i = 1, #(box.m_attachments or "") do
-		group[#group + 1] = box.m_attachments[i].links
-	end
-
-	return AuxGroups, group, 0
-end
-
---
 local function FindLink (box, sub)
 	for _, group in Groups(box) do
 		for i = 1, group.numChildren do
@@ -829,7 +826,7 @@ end
 
 --- DOCMAYBE
 function M.Unload ()
-	FakeTouch, Group, ItemGroup, NodeLists, Occupied, Tagged, ToRemove, ToSort = nil
+	FakeTouch, Group, GroupList1, GroupList2, ItemGroup, NodeLists, Occupied, Tagged, ToRemove, ToSort = nil
 end
 
 -- Export the module.
