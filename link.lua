@@ -37,6 +37,7 @@ local min = math.min
 local next = next
 local pairs = pairs
 local sort = table.sort
+local tonumber = tonumber
 local type = type
 
 -- Modules --
@@ -443,7 +444,7 @@ local function Arrange (is_source, offset, a, b, c, d, e, f)
 end
 
 --
-local function SubBox (group, object, sub, is_source, is_set)
+local function SubBox (tag_db, group, object, sub, is_source, is_set)
 	local sbgroup, a, b, c, d, e = display.newGroup()
 
 	--
@@ -457,6 +458,8 @@ local function SubBox (group, object, sub, is_source, is_set)
 
 	-- List (anchored at top?) of entries, each with:
 		-- Link (invisible)
+	local tag = tag_db:GetTag(object)
+
 	if is_set then
 		-- "+" -> append instance
 		-- Name field, to assign the label
@@ -464,6 +467,17 @@ local function SubBox (group, object, sub, is_source, is_set)
 		-- b = name field
 		-- c = link
 	else
+		local arr = {}
+
+		for _, instance in tag_db:Sublinks(tag, sub) do
+			local index = tonumber(common.GetLabel(instance))
+
+			for i = #arr + 1, index - 1 do
+				-- add instance / link for gap
+			end
+
+			-- Add new link (possibly already added when filling gap)
+		end
 		-- "+" -> add new instance with default label
 		-- 
 		-- insert / delete into / from array
@@ -534,7 +548,7 @@ local function AddObjectBox (group, tag_db, tag, object, sx, sy)
 		-- These each have some UI considerations
 			-- Auxiliary box(es) of links, rather than raw links
 			-- Must also track some state for save / load / build, for labels
-		attachments[#attachments + 1] = SubBox(group, object, sub, is_source, is_set)
+		attachments[#attachments + 1] = SubBox(tag_db, group, object, sub, is_source, is_set)
 		attachments[sub] = #attachments
 	end
 
