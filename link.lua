@@ -30,24 +30,22 @@
 -- Would the above make LinkGroup obsolete? Would it promote the search box?
 
 -- Standard library imports --
-local ceil = math.ceil
 local ipairs = ipairs
 local max = math.max
 local min = math.min
-local next = next
 local pairs = pairs
 local sort = table.sort
 local tonumber = tonumber
 local type = type
 
 -- Modules --
+local box_groups = require("s3_editor_views.link_imp.box_groups")
+local cells = require("s3_editor_views.link_imp.cells")
 local common = require("s3_editor.Common")
 local common_ui = require("s3_editor.CommonUI")
-local grid = require("tektite_core.array.grid")
 local help = require("s3_editor.Help")
 local layout = require("corona_ui.utils.layout")
 local link_group = require("corona_ui.widgets.link_group")
-local morton = require("number_sequences.morton")
 local touch = require("corona_ui.utils.touch")
 
 -- Corona globals --
@@ -86,12 +84,6 @@ local X, Y = 120, 80
 local Index
 
 -- --
-local Occupied
-
--- --
-local CellDim
-
--- --
 local X0, Y0
 
 -- --
@@ -99,45 +91,6 @@ local XOff, YOff
 
 -- Box drag listener --
 local DragTouch
-
---
-local function GetCells (box)
-	local bbounds = box.contentBounds
-	local x, y = ItemGroup:contentToLocal(bbounds.xMin, bbounds.yMin)
-	local col1, row1 = grid.PosToCell(x, y, CellDim, CellDim)
-	local col2, row2 = grid.PosToCell(x + box.contentWidth, y + box.contentHeight, CellDim, CellDim)
-
-	return max(col1 - 1, 0), max(row1 - 1, 0), max(col2 - 1, 0), max(row2 - 1, 0)
-end
-
---
-local function VisitCells (action)
-	return function(box)
-		local col1, row1, col2, row2 = GetCells(box)
-	
-		for num in morton.Morton2_LineY(col1, row1, row2) do
-			for col = col1, col2 do
-				local cnum = morton.MortonPairUpdate_X(num, col)
-
-				action(Occupied[cnum], box, cnum)
-			end
-		end
-	end
-end
-
---
-local AddToCell = VisitCells(function(cell, box, num)
-	cell = cell or {}
-
-	Occupied[num], cell[box] = cell, true
-end)
-
---
-local RemoveFromCell = VisitCells(function(cell, box)
-	if cell then
-		cell[box] = nil
-	end
-end)
 
 -- --
 local NodeLists
@@ -175,54 +128,75 @@ local NodeTouch = link_group.BreakTouchFunc(function(node)
 end)
 
 -- --
-local CellFrac = .35
-
--- --
-local NCells = ceil(1 / CellFrac) + 1
-
--- --
 local DoingLinks
 
---
-local GroupList1, GroupList2
-
---
-local function AuxGroups (groups, index)
-	index = index + 1
-
-	local cur = groups[index]
-
-	if cur then
-		return index, cur
-	end
+local function SortByID (box1, box2)
+	return box1.m_id > box2.m_id
 end
 
---
-local function Groups (box)
-	GroupList1, GroupList2 = GroupList2, GroupList1
+local function MakeLinkGroup (links)
+	local opts = {}
 
-	local glist = GroupList1
-
-	for i = #glist, 1, -1 do
-		glist[i] = nil
+	function opts.can_link (link1, link2)
+		return DoingLinks or common.GetLinks():CanLink(link1.m_obj, link2.m_obj, link1.m_sub, link2.m_sub)
 	end
 
-	glist[#glist + 1] = box.m_lgroup
-	glist[#glist + 1] = box.m_rgroup
+	--
+	local FadeParams = {}
 
-	for i = 1, #(box.m_attachments or "") do
-		glist[#glist + 1] = box.m_attachments[i].links
+	function opts.emphasize (item, how, link, source_to_target, not_owner)
+		local r, g, b = 1
+
+		if how == "began" then
+			if not not_owner then
+				r = 0
+			elseif not source_to_target then
+				r = .25
+			elseif links:CanLink(link.m_obj, item.m_obj, link.m_sub, item.m_sub) then
+				r, g, b = 1, 0, 1
+			else
+				r, g, b = .2, .3, .2
+			end
+		end
+
+		FadeParams.r, FadeParams.g, FadeParams.b = r, g or r, b or r
+
+		transition.to(item.fill, FadeParams)
 	end
 
-	return AuxGroups, glist, 0
+	--
+	local seen = {}
+	
+	function opts.gather (items)
+		cells.GatherVisibleBoxes(XOff, YOff, seen)
+
+		-- Order the boxes so that any arbitration during the linking process agrees
+		-- with the render order.
+		sort(seen, SortByID)
+
+		for _, box in ipairs(seen) do
+			for _, group in box_groups.Iterate(box) do
+				for i = 1, group.numChildren do
+					items[#items + 1] = group[i]
+				end
+			end
+		end
+	end
+
+	return link_group.LinkGroup(LinkLayer, Connect, NodeTouch, opts)
 end
+
+-- --
+cells.SetCellFraction(.35)
 
 ---
 -- @pgroup view X
 function M.Load (view)
+	box_groups.Load()
+
 	--
 	Group, ItemGroup, LinkLayer = display.newGroup(), display.newGroup(), display.newGroup()
-	Index, GroupList1, GroupList2, Occupied, NodeLists, Tagged, ToRemove, ToSort = 1, {}, {}, {}, {}, {}, {}, {}
+	Index, NodeLists, Tagged, ToRemove, ToSort = 1, {}, {}, {}, {}
 
 	view:insert(Group)
 
@@ -231,7 +205,7 @@ function M.Load (view)
 	Group:insert(cont)
 
 	--
-	CellDim = ceil(CellFrac * min(cont.width, cont.height))
+	cells.Load(cont)
 
 	-- Keep a mostly up-to-date list of tagged objects.
 	local links = common.GetLinks()
@@ -273,11 +247,11 @@ function M.Load (view)
 		clamp = "max", ref = "object",
 
 		on_began = function(_, box)
-			RemoveFromCell(box)
+			cells.RemoveFromCell(ItemGroup, box)
 		end,
 
 		on_ended = function(_, box)
-			AddToCell(box)
+			cells.AddToCell(ItemGroup, box)
 		end
 	})
 
@@ -296,83 +270,7 @@ function M.Load (view)
 	drag.isHitTestable, drag.isVisible = true, false
 
 	--
-	local seen = {}
-
-	local function AddFromGroup (items, group)
-		for i = 1, group.numChildren do
-			items[#items + 1] = group[i]
-		end
-	end
-
-	local function SortByID (box1, box2)
-		return box1.m_id > box2.m_id
-	end
-
-	local FadeParams = {}
-
-	Links = link_group.LinkGroup(LinkLayer, Connect, NodeTouch, {
-		-- Can Link --
-		can_link = function(link1, link2)
-			return DoingLinks or common.GetLinks():CanLink(link1.m_obj, link2.m_obj, link1.m_sub, link2.m_sub)
-		end,
-
-		-- Emphasize --
-		emphasize = function(item, how, link, source_to_target, not_owner)
-			local r, g, b = 1
-
-			if how == "began" then
-				if not not_owner then
-					r = 0
-				elseif not source_to_target then
-					r = .25
-				elseif links:CanLink(link.m_obj, item.m_obj, link.m_sub, item.m_sub) then
-					r, g, b = 1, 0, 1
-				else
-					r, g, b = .2, .3, .2
-				end
-			end
-
-			FadeParams.r, FadeParams.g, FadeParams.b = r, g or r, b or r
-
-			transition.to(item.fill, FadeParams)
-		end,
-
-		-- Gather --
-		gather = function(items)
-			-- Gather each unique box in the mostly-in-view cells.
-			local col1, row1 = grid.PosToCell(XOff, YOff, CellDim, CellDim)
-
-			for num in morton.Morton2_LineY(col1 - 1, row1 - 1, row1 + NCells - 2) do
-				for i = 0, NCells - 1 do
-					local cell = Occupied[num]
-
-					if cell then
-						for box in pairs(cell) do
-							if not seen[box] then
-								seen[#seen + 1], seen[box] = box, true
-							end
-						end
-					end
-
-					num = morton.MortonPairUpdate_X(num, col1 + i)
-				end
-			end
-
-			-- Order the boxes by ID so that any arbitration during the linking process
-			-- agrees with the render order. Wipe the list for next time.
-			sort(seen, SortByID)
-
-			for _, box in ipairs(seen) do
-				for _, group in Groups(box) do
-					AddFromGroup(items, group)
-				end
-			end
-
-			for k in pairs(seen) do
-				seen[k] = nil
-			end
-		end
-	})
+	Links = MakeLinkGroup(links)
 
 	--
 	common_ui.Frame(cont, 1, 0, 1)
@@ -629,7 +527,7 @@ local function AddObjectBox (group, tag_db, tag, object, sx, sy)
 	w = max(w, ntext.width) + 35
 
 	-- Make a new box at this spot.
-	local box = display.newRoundedRect(bgroup, (sx + .5) * CellDim, (sy + .5) * CellDim, w, y2 - y1 + 30, 12)
+	local box = cells.NewBox(bgroup, sx, sy, w, y2 - y1 + 30, 12)
 	local hw, y = box.width / 2, box.y - box.height / 2 + 15
 
 	box.m_attachments, box.m_lgroup, box.m_rgroup, box.m_id = attachments, lgroup, rgroup, BoxID
@@ -658,7 +556,7 @@ end
 
 --
 local function FindLink (box, sub)
-	for _, group in Groups(box) do
+	for _, group in box_groups.Iterate(box) do
 		for i = 1, group.numChildren do
 			local item = group[i]
 
@@ -696,7 +594,7 @@ end
 local function ConnectObject (object)
 	local links, box = common.GetLinks(), Tagged[object].m_box
 
-	for _, group in Groups(box) do
+	for _, group in box_groups.Iterate(box) do
 		DoLinks(links, group, object)
 	end
 end
@@ -765,13 +663,13 @@ function M.Enter (view)
 			NodeLists[id] = nil
 
 			--
-			for i = 1, #(box.m_attachments or "") do
-				local sbox = box.m_attachments[i]
+			for j = 1, #(box.m_attachments or "") do
+				local sbox = box.m_attachments[j]
 
-				for j = 1, sbox.numChildren do
-					tag = tag or tag_db:GetTag(sbox[j].m_obj)
+				for k = 1, sbox.numChildren do
+					tag = tag or tag_db:GetTag(sbox[k].m_obj)
 
-					local instance = sbox[j].m_sub -- ??
+					local instance = sbox[k].m_sub -- ??
 					
 					-- remove from some master list?
 
@@ -784,7 +682,7 @@ function M.Enter (view)
 			end
 
 			--
-			RemoveFromCell(box)
+			cells.RemoveFromCell(ItemGroup, box)
 
 			--
 			box.parent:removeSelf()
@@ -796,16 +694,12 @@ function M.Enter (view)
 	-- Dole out spots to any new objects in creation order, adding boxes there.
 	sort(ToSort, SortByIndex)
 
-	local spot = -1
+	local spot, sx, sy = -1
 
 	for _, object in ipairs(ToSort) do
-		repeat
-			spot = spot + 1
+		spot, sx, sy = cells.FindFreeCell(spot)
 
-			local cell = Occupied[spot]
-		until (cell and next(cell, nil)) == nil
-
-		local box, name = AddObjectBox(ItemGroup, tag_db, links:GetTag(object), object, morton.MortonPair(spot))
+		local box, name = AddObjectBox(ItemGroup, tag_db, links:GetTag(object), object, sx, sy)
 
 		Tagged[object], object.m_link_index = {	m_box = box, m_name = name }
 
@@ -840,7 +734,9 @@ end
 
 --- DOCMAYBE
 function M.Unload ()
-	FakeTouch, Group, GroupList1, GroupList2, ItemGroup, NodeLists, Occupied, Tagged, ToRemove, ToSort = nil
+	FakeTouch, Group, ItemGroup, NodeLists, Tagged, ToRemove, ToSort = nil
+
+	box_groups.Unload()
 end
 
 -- Export the module.
