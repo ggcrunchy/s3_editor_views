@@ -541,7 +541,7 @@ local function AddObjectBox (group, tag_db, tag, object, sx, sy)
 	local attachments
 
 	for _, sub in tag_db:Sublinks(tag, "templates") do
-		local iinfo, is_source = info and info[sub] = SublinkInfo(info, tag_db, tag, sub)
+		local iinfo, is_source = SublinkInfo(info, tag_db, tag, sub)
 		local is_set = iinfo and iinfo.is_set
 
 		attachments = attachments or {}
@@ -562,7 +562,7 @@ local function AddObjectBox (group, tag_db, tag, object, sx, sy)
 	end
 
 	for _, sub in tag_db:Sublinks(tag, "no_instances") do
-		local ai, iinfo, text, is_source = attachments and attachments[sub], SublinkInfo(info, tag_db, tag, sub)
+		local ai, iinfo, is_source, text = attachments and attachments[sub], SublinkInfo(info, tag_db, tag, sub)
 		local cur = is_source and rgroup or lgroup
 		local n, link = cur.numChildren, display.newCircle(cur, 0, 0, 5)
 		local stext = display.newText(cur, iinfo and iinfo.friendly_name or sub, 0, 0, native.systemFont, 12)
