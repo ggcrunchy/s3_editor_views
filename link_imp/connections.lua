@@ -30,7 +30,7 @@ local M = {}
 local pairs = pairs
 
 -- Modules --
-local box_groups = require("s3_editor_views.link_imp.box_groups")
+local box_layout = require("s3_editor_views.link_imp.box_layout")
 local common = require("s3_editor.Common")
 local link_group = require("corona_ui.widgets.link_group")
 local objects = require("s3_editor_views.link_imp.objects")
@@ -87,7 +87,7 @@ local DoingLinks
 
 --
 local function FindLink (box, sub)
-	for _, group in box_groups.Iterate(box) do
+	for _, group in box_layout.IterateGroupsOfLinks(box) do
 		for i = 1, group.numChildren do
 			local item = group[i]
 
@@ -123,7 +123,7 @@ end
 function M.ConnectObject (object)
 	local links = common.GetLinks()
 
-	for _, group in box_groups.Iterate(objects.GetBox(object)) do
+	for _, group in box_layout.IterateGroupsOfLinks(objects.GetBox(object)) do
 		DoLinks(links, group, object)
 	end
 end

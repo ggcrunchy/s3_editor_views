@@ -32,13 +32,12 @@
 -- Standard library imports --
 local ipairs = ipairs
 local max = math.max
-local min = math.min
 local sort = table.sort
 local tonumber = tonumber
 local type = type
 
 -- Modules --
-local box_groups = require("s3_editor_views.link_imp.box_groups")
+local box_layout = require("s3_editor_views.link_imp.box_layout")
 local cells = require("s3_editor_views.link_imp.cells")
 local common = require("s3_editor.Common")
 local common_ui = require("s3_editor.CommonUI")
@@ -75,11 +74,6 @@ local XOff, YOff
 local DragTouch
 
 --
-local function SortByID (box1, box2)
-	return box1.m_id > box2.m_id
-end
-
---
 local FadeParams = {}
 
 local function EmphasizeLinks (item, how, link, source_to_target, not_owner)
@@ -104,6 +98,10 @@ end
 
 local BoxesSeen
 
+local function SortByID (box1, box2)
+	return box1.m_id > box2.m_id
+end
+
 local function GatherLinks (items)
 	cells.GatherVisibleBoxes(XOff, YOff, BoxesSeen)
 
@@ -112,7 +110,7 @@ local function GatherLinks (items)
 	sort(BoxesSeen, SortByID)
 
 	for _, box in ipairs(BoxesSeen) do
-		for _, group in box_groups.Iterate(box) do
+		for _, group in box_layout.IterateGroupsOfLinks(box) do
 			for i = 1, group.numChildren do
 				items[#items + 1] = group[i]
 			end
@@ -126,7 +124,7 @@ cells.SetCellFraction(.35)
 ---
 -- @pgroup view X
 function M.Load (view)
-	box_groups.Load()
+	box_layout.Load()
 
 	--
 	BoxesSeen, Group, ItemGroup = {}, display.newGroup(), display.newGroup()
@@ -162,6 +160,7 @@ function M.Load (view)
 
 	layout.PutRightOf(cont, X, 5)
 	layout.PutBelow(cont, Y, 5)
+	common_ui.Frame(cont, 1, 0, 1)
 
 	--
 	DragTouch = touch.DragParentTouch_Child(1, {
@@ -193,10 +192,6 @@ function M.Load (view)
 	--
 	connections.Load(link_layer, EmphasizeLinks, GatherLinks)
 
-	--
-	common_ui.Frame(cont, 1, 0, 1)
-
-	--
 	Group.isVisible = false
 
 	help.AddHelp("Link", { cont = cont })
@@ -205,61 +200,6 @@ function M.Load (view)
 				"output node (on the right side) to a linkable input node (left side), or vice versa. Links are broken by " ..
 				"clicking the dot on the line between the nodes. TODO: Far apart nodes"
 	})
-end
-
---
-local function Align (group, is_rgroup)
-	local w = group.m_w
-
-	for i = 1, group.numChildren do
-		local object = group[i]
-		local dx = w - object.m_w
-
-		if is_rgroup then
-			object.x = object.x + dx
-		else
-			object.x = object.x - dx
-		end
-	end
-end
-
---
-local function FindBottom (group)
-	local y2, n = 0, group.numChildren
-	local line = n > 0 and group[n].m_line
-
-	for i = n, 1, -1 do
-		local object = group[i]
-
-		if object.m_line ~= line then
-			break
-		else
-			y2 = max(y2, object.y + object.height / 2)
-		end
-	end
-
-	return y2
-end
-
---
-local function Arrange (is_source, offset, a, b, c, d, e, f)
-	if is_source then
-		if f then -- quick and dirty alternative to some sort of gather -> sort -> unpack
-			a, b, c, d, e, f = f, e, d, c, b, a
-		elseif e then
-			a, b, c, d, e = e, d, c, b, a
-		elseif d then
-			a, b, c, d = d, c, b, a
-		elseif c then
-			a, b, c = c, b, a
-		elseif b then
-			a, b = b, a
-		end
-
-		return "PutLeftOf", -offset, a, b, c, d, e, f
-	else
-		return "PutRightOf", offset, a, b, c, d, e, f
-	end
 end
 
 --
@@ -351,11 +291,6 @@ local function AddObjectBox (group, tag_db, tag, object, sx, sy)
 
 	group:insert(bgroup)
 
-	local lgroup, rgroup = display.newGroup(), display.newGroup()
-
-	bgroup:insert(lgroup)
-	bgroup:insert(rgroup)
-
 	--
 	local attachments
 
@@ -382,14 +317,14 @@ local function AddObjectBox (group, tag_db, tag, object, sx, sy)
 
 	for _, sub in tag_db:Sublinks(tag, "no_instances") do
 		local ai, iinfo, is_source, text = attachments and attachments[sub], SublinkInfo(info, tag_db, tag, sub)
-		local cur = is_source and rgroup or lgroup
+		local cur = box_layout.ChooseLeftOrRightGroup(bgroup, is_source)
 		local n, link = cur.numChildren, display.newCircle(cur, 0, 0, 5)
 		local stext = display.newText(cur, iinfo and iinfo.friendly_name or sub, 0, 0, native.systemFont, 12)
 
 		link.strokeWidth = 1
 
 		--
-		local method, offset, lo, ro = Arrange(is_source, 5, link, stext)
+		local method, offset, lo, ro = box_layout.Arrange(is_source, 5, link, stext)
 
 		layout[method](stext, link, offset)
 
@@ -409,59 +344,19 @@ local function AddObjectBox (group, tag_db, tag, object, sx, sy)
 		end
 
 		--
-		local w, line = layout.RightOf(ro) - layout.LeftOf(lo), (cur.m_line or 0) + 1
-
-		cur.m_w = max(cur.m_w or 0, w)
-
-		for i = n + 1, cur.numChildren do
-			local object = cur[i]
-
-			if line > 1 then
-				layout.PutBelow(object, cur.m_prev, 5)
-			else
-				cur.m_y1 = min(cur.m_y1 or 0, object.y - object.height / 2)
-			end
-
-			object.m_w = w
-		end
-
-		cur.m_line, cur.m_prev = line, link
+		box_layout.AddLine(cur, lo, ro, link, n, 5)
 	end
 
 	--
-	local w, y1, y2 = lgroup.m_w
-
-	if w and rgroup.m_w then
-		w = w + rgroup.m_w
-		y1 = min(lgroup.m_y1, rgroup.m_y1)
-		y2 = max(FindBottom(lgroup), FindBottom(rgroup))
-	elseif w then
-		y1, y2 = lgroup.m_y1, FindBottom(lgroup)
-	else
-		w, y1, y2 = rgroup.m_w, rgroup.m_y1, FindBottom(rgroup)
-	end
-
+	local w, h = box_layout.GetSize()
 	local ntext = display.newText(bgroup, name, 0, 0, native.systemFont, 12)
 
 	ntext:setFillColor(0)
 
-	w = max(w, ntext.width) + 35
-
 	-- Make a new box at this spot.
-	local box = cells.NewBox(bgroup, sx, sy, w, y2 - y1 + 30, 12)
-	local hw, y = box.width / 2, box.y - box.height / 2 + 15
+	local box = cells.NewBox(bgroup, sx, sy, max(w, ntext.width) + 35, h + 30, 12)
 
-	box.m_attachments, box.m_lgroup, box.m_rgroup, box.m_id = attachments, lgroup, rgroup, BoxID
-
-	Align(lgroup, false)
-	Align(lgroup, true)
-
-	ntext.x, ntext.y = box.x, y - 5
-
-	lgroup.y, rgroup.y = y + 15, y + 15
-
-	lgroup.x = box.x - hw + 10
-	rgroup.x, rgroup.anchorX = box.x + hw - 10, 1
+	box_layout.AddNameAndCommit(box, ntext, 10, 30, 10)
 
 	box:addEventListener("touch", DragTouch)
 	box:setFillColor(.375, .675)
@@ -469,6 +364,8 @@ local function AddObjectBox (group, tag_db, tag, object, sx, sy)
 	box:toBack()
 
 	box.strokeWidth = 2
+
+	box.m_attachments, box.m_id = attachments, BoxID
 
 	connections.AddNodeList(BoxID)
 
@@ -553,7 +450,7 @@ end
 function M.Unload ()
 	BoxesSeen, Group, ItemGroup = nil
 
-	box_groups.Unload()
+	box_layout.Unload()
 	cells.Unload()
 	connections.Unload()
 	objects.Unload()
