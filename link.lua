@@ -33,7 +33,6 @@
 local ipairs = ipairs
 local max = math.max
 local min = math.min
-local pairs = pairs
 local sort = table.sort
 local tonumber = tonumber
 local type = type
@@ -43,9 +42,10 @@ local box_groups = require("s3_editor_views.link_imp.box_groups")
 local cells = require("s3_editor_views.link_imp.cells")
 local common = require("s3_editor.Common")
 local common_ui = require("s3_editor.CommonUI")
+local connections = require("s3_editor_views.link_imp.connections")
 local help = require("s3_editor.Help")
 local layout = require("corona_ui.utils.layout")
-local link_group = require("corona_ui.widgets.link_group")
+local objects = require("s3_editor_views.link_imp.objects")
 local touch = require("corona_ui.utils.touch")
 
 -- Corona globals --
@@ -63,25 +63,7 @@ local Group
 local ItemGroup
 
 -- --
-local LinkLayer
-
--- --
-local Links
-
--- --
-local Tagged
-
--- --
-local ToRemove
-
--- --
-local ToSort
-
--- --
 local X, Y = 120, 80
-
--- --
-local Index
 
 -- --
 local X0, Y0
@@ -92,98 +74,50 @@ local XOff, YOff
 -- Box drag listener --
 local DragTouch
 
--- --
-local NodeLists
-
 --
-local function Connect (_, link1, link2, node)
-	local links, nlink = common.GetLinks()
-	local obj1, obj2 = link1.m_obj, link2.m_obj
-
-	for link in links:Links(obj1, link1.m_sub) do
-		if link:GetOtherObject(obj1) == obj2 then
-			nlink = link
-		end
-	end
-
-	node.m_link = nlink or links:LinkObjects(link1.m_obj, link2.m_obj, link1.m_sub, link2.m_sub)
-
-	local id1, id2 = link_group.GetLinkInfo(link1), link_group.GetLinkInfo(link2)
-	local nl1, nl2 = NodeLists[id1], NodeLists[id2]
-
-	node.m_id1, node.m_id2 = id1, id2
-	nl1[node], nl2[node] = true, true
-end
-
--- Get a list of nodes matching the ID; since we'll just be nil'ing the entry anyway, supply the list-of-lists on failure (where that will no-op)
-local function GetList (id)
-	return NodeLists[id] or NodeLists
-end
-
--- Lines (with "break" option) shown in between
-local NodeTouch = link_group.BreakTouchFunc(function(node)
-	node.m_link:Break()
-
-	GetList(node.m_id1)[node], GetList(node.m_id2)[node] = nil
-end)
-
--- --
-local DoingLinks
-
 local function SortByID (box1, box2)
 	return box1.m_id > box2.m_id
 end
 
-local function MakeLinkGroup (links)
-	local opts = {}
+--
+local FadeParams = {}
 
-	function opts.can_link (link1, link2)
-		return DoingLinks or common.GetLinks():CanLink(link1.m_obj, link2.m_obj, link1.m_sub, link2.m_sub)
-	end
+local function EmphasizeLinks (item, how, link, source_to_target, not_owner)
+	local r, g, b = 1
 
-	--
-	local FadeParams = {}
-
-	function opts.emphasize (item, how, link, source_to_target, not_owner)
-		local r, g, b = 1
-
-		if how == "began" then
-			if not not_owner then
-				r = 0
-			elseif not source_to_target then
-				r = .25
-			elseif links:CanLink(link.m_obj, item.m_obj, link.m_sub, item.m_sub) then
-				r, g, b = 1, 0, 1
-			else
-				r, g, b = .2, .3, .2
-			end
-		end
-
-		FadeParams.r, FadeParams.g, FadeParams.b = r, g or r, b or r
-
-		transition.to(item.fill, FadeParams)
-	end
-
-	--
-	local seen = {}
-	
-	function opts.gather (items)
-		cells.GatherVisibleBoxes(XOff, YOff, seen)
-
-		-- Order the boxes so that any arbitration during the linking process agrees
-		-- with the render order.
-		sort(seen, SortByID)
-
-		for _, box in ipairs(seen) do
-			for _, group in box_groups.Iterate(box) do
-				for i = 1, group.numChildren do
-					items[#items + 1] = group[i]
-				end
-			end
+	if how == "began" then
+		if not not_owner then
+			r = 0
+		elseif not source_to_target then
+			r = .25
+		elseif common.GetLinks():CanLink(link.m_obj, item.m_obj, link.m_sub, item.m_sub) then
+			r, g, b = 1, 0, 1
+		else
+			r, g, b = .2, .3, .2
 		end
 	end
 
-	return link_group.LinkGroup(LinkLayer, Connect, NodeTouch, opts)
+	FadeParams.r, FadeParams.g, FadeParams.b = r, g or r, b or r
+
+	transition.to(item.fill, FadeParams)
+end
+
+local BoxesSeen
+
+local function GatherLinks (items)
+	cells.GatherVisibleBoxes(XOff, YOff, BoxesSeen)
+
+	-- Order the boxes so that any arbitration during the linking process agrees
+	-- with the render order.
+	sort(BoxesSeen, SortByID)
+
+	for _, box in ipairs(BoxesSeen) do
+		for _, group in box_groups.Iterate(box) do
+			for i = 1, group.numChildren do
+				items[#items + 1] = group[i]
+			end
+		end
+	end
 end
 
 -- --
@@ -195,8 +129,7 @@ function M.Load (view)
 	box_groups.Load()
 
 	--
-	Group, ItemGroup, LinkLayer = display.newGroup(), display.newGroup(), display.newGroup()
-	Index, NodeLists, Tagged, ToRemove, ToSort = 1, {}, {}, {}, {}
+	BoxesSeen, Group, ItemGroup = {}, display.newGroup(), display.newGroup()
 
 	view:insert(Group)
 
@@ -210,21 +143,7 @@ function M.Load (view)
 	-- Keep a mostly up-to-date list of tagged objects.
 	local links = common.GetLinks()
 
-	links:SetAssignFunc(function(object)
-		Tagged[object] = false -- exists but no box yet (might already have links, though)
-
-		-- has template sublinks?
-			-- attach appropriate box(es) (or get data ready, anyhow)
-			-- put appropriate data in instance <-> label map
-
-		object.m_link_index, Index = Index, Index + 1
-	end)
-	links:SetRemoveFunc(function(object)
-		ToRemove[#ToRemove + 1], Tagged[object] = Tagged[object]
-
-		-- has template sublinks?
-			-- remove instance / label from map
-	end)
+	objects.Load(links)
 
 	--
 	local cw, ch = cont.width, cont.height
@@ -235,9 +154,11 @@ function M.Load (view)
 
 	ItemGroup:translate(X0, Y0)
 
-	cont:insert(LinkLayer)
+	local link_layer = display.newGroup()
 
-	LinkLayer:translate(X0 - (X + 5), Y0 - (Y + 5))
+	cont:insert(link_layer)
+
+	link_layer:translate(X0 - (X + 5), Y0 - (Y + 5))
 
 	layout.PutRightOf(cont, X, 5)
 	layout.PutBelow(cont, Y, 5)
@@ -270,7 +191,7 @@ function M.Load (view)
 	drag.isHitTestable, drag.isVisible = true, false
 
 	--
-	Links = MakeLinkGroup(links)
+	connections.Load(link_layer, EmphasizeLinks, GatherLinks)
 
 	--
 	common_ui.Frame(cont, 1, 0, 1)
@@ -482,7 +403,7 @@ local function AddObjectBox (group, tag_db, tag, object, sx, sy)
 			-- TODO: just a link_group.Connect(link, sbox, false, Links:GetGroups())?
 			link.isVisible = false
 		else
-			Links:AddLink(BoxID, not is_source, link)
+			connections.AddLink(BoxID, not is_source, link)
 
 			link.m_obj, link.m_sub = object, sub
 		end
@@ -549,175 +470,71 @@ local function AddObjectBox (group, tag_db, tag, object, sx, sy)
 
 	box.strokeWidth = 2
 
-	NodeLists[BoxID], BoxID = {}, BoxID + 1
+	connections.AddNodeList(BoxID)
+
+	BoxID = BoxID + 1
 
 	return box, ntext
-end
-
---
-local function FindLink (box, sub)
-	for _, group in box_groups.Iterate(box) do
-		for i = 1, group.numChildren do
-			local item = group[i]
-
-			if item.m_sub == sub then
-				return item
-			end
-		end
-	end
-end
-
---
-local function DoLinks (links, group, object)
-	for i = 1, group.numChildren do
-		local lobj = group[i]
-		local lsub = lobj.m_sub
-
-		if lsub then
-			for link in links:Links(object, lsub) do
-				if DoingLinks == true then
-					DoingLinks = {}
-				end
-
-				if not DoingLinks[link] then
-					local obj, osub = link:GetOtherObject(object)
-					local node = Links:ConnectObjects(lobj, FindLink(Tagged[obj].m_box, osub))
-
-					node.m_link, DoingLinks[link] = link, true
-				end
-			end
-		end
-	end
-end
-
---
-local function ConnectObject (object)
-	local links, box = common.GetLinks(), Tagged[object].m_box
-
-	for _, group in box_groups.Iterate(box) do
-		DoLinks(links, group, object)
-	end
-end
-
--- Helper to sort objects in creation order
-local function SortByIndex (a, b)
-	return a.m_link_index < b.m_link_index
-end
-
--- --
-local FakeTouch
-
---
-local function SpoofTouch (box, phase)
-	FakeTouch = FakeTouch or { id = "ignore_me", name = "touch" }
-
-	FakeTouch.target, FakeTouch.phase = box, phase
-
-	if phase == "began" then
-		FakeTouch.x, FakeTouch.y = box:localToContent(0, 0)
-	end
-
-	box:dispatchEvent(FakeTouch)
-
-	FakeTouch.target = nil
 end
 
 ---
 -- @pgroup view X
 function M.Enter (view)
-	-- Cull any dangling objects and gather up new ones.
-	for object, state in pairs(Tagged) do
-		if not display.isValid(object) then
-			Tagged[object] = nil
-		elseif not state then
-			ToSort[#ToSort + 1] = object
-		end
-	end
-
---[[
-	local name = common.GetValuesFromRep(object).name
-
-	if state.m_name.text ~= name then
-		state.m_name.text = name
-		-- TODO: might need resizing :/
-		-- TODO: probably needs a Runtime event
-	end
-]]
+	objects.Refresh()
 
 	-- Remove any dead objects.
 	local links = common.GetLinks()
 	local tag_db = links:GetTagDatabase()
 
-	for i = #ToRemove, 1, -1 do
-		local state = ToRemove[i]
+	for _, state in objects.IterateRemovedObjects() do
+		local box, tag = state.m_box
 
-		if state then
-			--
-			local box = state.m_box
-			local id, tag = box.m_id
+		connections.RemoveNodeList(box.m_id)
 
-			for node in pairs(NodeLists[id]) do
-				link_group.Break(node)
+		--
+		for j = 1, #(box.m_attachments or "") do
+			local sbox = box.m_attachments[j]
+
+			for k = 1, sbox.numChildren do
+				tag = tag or tag_db:GetTag(sbox[k].m_obj)
+
+				local instance = sbox[k].m_sub -- ??
+
+				common.SetLabel(instance, nil)
+
+				tag_db:Release(tag, instance)
 			end
 
-			NodeLists[id] = nil
+			-- Remove from cell?
 
-			--
-			for j = 1, #(box.m_attachments or "") do
-				local sbox = box.m_attachments[j]
-
-				for k = 1, sbox.numChildren do
-					tag = tag or tag_db:GetTag(sbox[k].m_obj)
-
-					local instance = sbox[k].m_sub -- ??
-					
-					-- remove from some master list?
-
-					tag_db:Release(tag, instance)
-				end
-
-				-- Remove from cell?
-
-				sbox:removeSelf()
-			end
-
-			--
-			cells.RemoveFromCell(ItemGroup, box)
-
-			--
-			box.parent:removeSelf()
+			sbox:removeSelf()
 		end
 
-		ToRemove[i] = nil
+		--
+		cells.RemoveFromCell(ItemGroup, box)
+
+		--
+		box.parent:removeSelf()
 	end
 
 	-- Dole out spots to any new objects in creation order, adding boxes there.
-	sort(ToSort, SortByIndex)
-
 	local spot, sx, sy = -1
 
-	for _, object in ipairs(ToSort) do
+	for _, object in objects.IterateNewObjects() do
 		spot, sx, sy = cells.FindFreeCell(spot)
 
 		local box, name = AddObjectBox(ItemGroup, tag_db, links:GetTag(object), object, sx, sy)
 
-		Tagged[object], object.m_link_index = {	m_box = box, m_name = name }
-
-		SpoofTouch(box, "began")
-		SpoofTouch(box, "moved")
-		SpoofTouch(box, "ended")
+		objects.AddBoxForObject(object, box, name)
+		touch.Spoof(box)
 	end
 
 	-- Now that our objects all exist, wire up any links and clear the list.
-	DoingLinks = true
-
-	for i = #ToSort, 1, -1 do
-		ConnectObject(ToSort[i])
-
-		ToSort[i] = nil
+	for _, object in objects.IterateNewObjects("remove") do
+		connections.ConnectObject(object)
 	end
 
-	DoingLinks = false
+	connections.FinishConnecting()
 
 	--
 	Group.isVisible = true
@@ -729,14 +546,17 @@ end
 function M.Exit ()
 	-- Tear down link groups
 
-	Group.isVisible, Index = false, 1
+	Group.isVisible = false
 end
 
 --- DOCMAYBE
 function M.Unload ()
-	FakeTouch, Group, ItemGroup, NodeLists, Tagged, ToRemove, ToSort = nil
+	BoxesSeen, Group, ItemGroup = nil
 
 	box_groups.Unload()
+	cells.Unload()
+	connections.Unload()
+	objects.Unload()
 end
 
 -- Export the module.
