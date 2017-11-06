@@ -105,9 +105,7 @@ end
 local function GatherLinks (items)
 	cells.GatherVisibleBoxes(XOff, YOff, BoxesSeen)
 
-	-- Order the boxes so that any arbitration during the linking process agrees
-	-- with the render order.
-	sort(BoxesSeen, SortByID)
+	sort(BoxesSeen, SortByID) -- make links agree with render order
 
 	for _, box in ipairs(BoxesSeen) do
 		for _, group in box_layout.IterateGroupsOfLinks(box) do
@@ -217,8 +215,8 @@ local function SubBox (tag_db, group, object, sub, is_source, is_set)
 
 	-- List (anchored at top?) of entries, each with:
 		-- Link (invisible)
-	local tag = tag_db:GetTag(object)
-
+	local tag = links:GetTag(object)
+-- :/
 	if is_set then
 		-- "+" -> append instance
 		-- Name field, to assign the label
@@ -286,7 +284,7 @@ local function SublinkInfo (info, tag_db, tag, sub)
 end
 
 --
-local function AddObjectBox (group, tag_db, tag, object, sx, sy)
+local function AddPrimaryBox (group, tag_db, tag, object, sx, sy)
 	local info, name, bgroup = common.AttachLinkInfo(object, nil), common.GetValuesFromRep(object).name, display.newGroup()
 
 	group:insert(bgroup)
@@ -374,64 +372,73 @@ local function AddObjectBox (group, tag_db, tag, object, sx, sy)
 	return box, ntext
 end
 
----
--- @pgroup view X
-function M.Enter (view)
-	objects.Refresh()
+--
+local function RemoveAttachment (tag_db, sbox, tag)
+	for k = 1, sbox.numChildren do
+		tag = tag or tag_db:GetTag(sbox[k].m_obj)
 
-	-- Remove any dead objects.
-	local links = common.GetLinks()
-	local tag_db = links:GetTagDatabase()
+		local instance = sbox[k].m_sub -- ??
+
+		common.SetLabel(instance, nil)
+
+		tag_db:Release(tag, instance)
+	end
+
+	-- Remove from cell?
+
+	sbox:removeSelf()
+
+	return tag
+end
+
+local function RemoveDeadObjects ()
+	local tag_db = common.GetLinks():GetTagDatabase()
 
 	for _, state in objects.IterateRemovedObjects() do
 		local box, tag = state.m_box
 
 		connections.RemoveNodeList(box.m_id)
 
-		--
 		for j = 1, #(box.m_attachments or "") do
-			local sbox = box.m_attachments[j]
-
-			for k = 1, sbox.numChildren do
-				tag = tag or tag_db:GetTag(sbox[k].m_obj)
-
-				local instance = sbox[k].m_sub -- ??
-
-				common.SetLabel(instance, nil)
-
-				tag_db:Release(tag, instance)
-			end
-
-			-- Remove from cell?
-
-			sbox:removeSelf()
+			tag = RemoveAttachment(tag_db, box.m_attachments[j], tag)
 		end
 
-		--
 		cells.RemoveFromCell(ItemGroup, box)
 
-		--
 		box.parent:removeSelf()
-	end
+	end	
+end
 
-	-- Dole out spots to any new objects in creation order, adding boxes there.
-	local spot, sx, sy = -1
+local function AddNewObjects ()
+	local links, spot, sx, sy = common.GetLinks(), -1
+	local tag_db = links:GetTagDatabase()
 
 	for _, object in objects.IterateNewObjects() do
 		spot, sx, sy = cells.FindFreeCell(spot)
 
-		local box, name = AddObjectBox(ItemGroup, tag_db, links:GetTag(object), object, sx, sy)
+		local box, name = AddPrimaryBox(ItemGroup, tag_db, links:GetTag(object), object, sx, sy)
 
-		objects.AddBoxForObject(object, box, name)
+		objects.AssociateBoxAndObject(object, box, name)
 		touch.Spoof(box)
 	end
+end
 
-	-- Now that our objects all exist, wire up any links and clear the list.
+local function MakeConnections ()
 	for _, object in objects.IterateNewObjects("remove") do
 		connections.ConnectObject(object)
 	end
 
 	connections.FinishConnecting()
+end
+
+---
+-- @pgroup view X
+function M.Enter (view)
+	objects.Refresh()
+
+	RemoveDeadObjects()
+	AddNewObjects()
+	MakeConnections()
 
 	--
 	Group.isVisible = true

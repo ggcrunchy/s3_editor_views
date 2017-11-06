@@ -41,7 +41,7 @@ local display = display
 local Index, Tagged, ToRemove, ToSort
 
 --- DOCME
-function M.AddBoxForObject (object, box, name)
+function M.AssociateBoxAndObject (object, box, name)
 	Tagged[object], object.m_link_index = { m_box = box, m_name = name }
 end
 
