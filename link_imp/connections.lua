@@ -134,6 +134,11 @@ function M.FinishConnecting ()
 end
 
 --- DOCME
+function M.LinkAttachment (link, attachment)
+	link_group.Connect(link, attachment.primary, false, LinkGroup:GetGroups())
+end
+
+--- DOCME
 function M.Load (group, emphasize, gather)
 	LinkGroup, NodeLists, DoingLinks = link_group.LinkGroup(group, Connect, NodeTouch, {
 		can_link = function(link1, link2)
@@ -144,8 +149,12 @@ end
 
 --- DOCME
 function M.RemoveNodeList (id)
-	for node in pairs(NodeLists[id]) do
-		link_group.Break(node)
+	local list = NodeLists[id]
+
+	if list then -- attachments will share primary's list
+		for node in pairs(list) do
+			link_group.Break(node)
+		end
 	end
 
 	NodeLists[id] = nil

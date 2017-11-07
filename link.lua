@@ -96,24 +96,26 @@ local function EmphasizeLinks (item, how, link, source_to_target, not_owner)
 	transition.to(item.fill, FadeParams)
 end
 
-local BoxesSeen
-
 local function SortByID (box1, box2)
 	return box1.m_id > box2.m_id
 end
 
 local function GatherLinks (items)
-	cells.GatherVisibleBoxes(XOff, YOff, BoxesSeen)
+	local boxes_seen = items.m_boxes_seen or {}
 
-	sort(BoxesSeen, SortByID) -- make links agree with render order
+	cells.GatherVisibleBoxes(XOff, YOff, boxes_seen)
 
-	for _, box in ipairs(BoxesSeen) do
+	sort(boxes_seen, SortByID) -- make links agree with render order
+
+	for _, box in ipairs(boxes_seen) do
 		for _, group in box_layout.IterateGroupsOfLinks(box) do
 			for i = 1, group.numChildren do
 				items[#items + 1] = group[i]
 			end
 		end
 	end
+
+	items.m_boxes_seen = boxes_seen
 end
 
 -- --
@@ -125,7 +127,7 @@ function M.Load (view)
 	box_layout.Load()
 
 	--
-	BoxesSeen, Group, ItemGroup = {}, display.newGroup(), display.newGroup()
+	Group, ItemGroup = display.newGroup(), display.newGroup()
 
 	view:insert(Group)
 
@@ -135,11 +137,7 @@ function M.Load (view)
 
 	--
 	cells.Load(cont)
-
-	-- Keep a mostly up-to-date list of tagged objects.
-	local links = common.GetLinks()
-
-	objects.Load(links)
+	objects.Load()
 
 	--
 	local cw, ch = cont.width, cont.height
@@ -200,30 +198,121 @@ function M.Load (view)
 	})
 end
 
+-- --
+local NodeListIndex = 0
+
+local function IntegrateLink (link, object, sub, is_source)
+	connections.AddLink(NodeListIndex, not is_source, link)
+
+	link.m_obj, link.m_sub = object, sub
+end
+
+local function AddArrayRow (arr, row, sub)
+
+end
+
+local function AddSetRow (set, row, sub)
+
+end
+
+local function DeleteArrayRow (arr, row)
+end
+
+local function DeleteSetRow (set, row)
+end
+
+local function MeasureDummyRow (group, add)
+	local n = group.numChildren
+	local left_object, right_object = add(group)
+	local w = box_layout.GetLineWidth(left_object, right_object)
+	local newn = group.numChildren - n
+
+	for i = group.numChildren, n + 1, -1 do
+		group:remove(i)
+	end
+
+	group.links:remove(group.links.numChildren)
+
+	return newn
+end
+
+local BoxID = 0
+
+local function AddBoxAtSpot (group, name, sx, sy, min_w)
+	--
+	local w, h = box_layout.GetSize()
+	local ntext = display.newText(group, name, 0, 0, native.systemFont, 12)
+
+	ntext:setFillColor(0)
+
+	-- Make a new box at this spot.
+	local box = cells.NewBox(group, sx, sy, max(w, ntext.width, min_w or 0) + 35, h + 30, 12)
+
+	box_layout.AddNameAndCommit(box, ntext, 10, 30, 10)
+
+	box:addEventListener("touch", DragTouch)
+	box:setFillColor(.375, .675)
+	box:setStrokeColor(.125)
+	box:toBack()
+
+	box.strokeWidth = 2
+
+	box.m_id = BoxID
+
+	BoxID = BoxID + 1
+
+	return box, ntext
+end
+
 --
-local function SubBox (tag_db, group, object, sub, is_source, is_set)
-	local sbgroup, a, b, c, d, e = display.newGroup()
+local ArrayN, SetN
+
+local function AttachmentBox (group, tag_db, tag, sub, is_source, is_set)
+	local agroup, a, b, c, d, e = display.newGroup()
+
+	-- main box
+	-- choose add / remove functions
+	-- foreach
+		-- append
+	-- set box size
+	-- push back
 
 	--
-	sbgroup.links = display.newGroup()
+	agroup.links = display.newGroup()
 
-	group:insert(sbgroup)
-	sbgroup:insert(sbgroup.links)
+	group:insert(agroup)
+	agroup:insert(agroup.links)
+--[[
+	for _, sub in tag_db:Sublinks(tag, "instances") do
+		-- populate box(es), in case of a load
+		-- must be able to tie these to the object
+			-- probably the same state that must maintain for save / load
+		-- should we just do this when iterating templates?
+			-- somehow need to keep per-object distinction on hand anyhow...
+	end
+]]
+	-- Add first line
+	-- Add any already-available lines
 
 	-- a = delete button
 	-- local link = ...
 
 	-- List (anchored at top?) of entries, each with:
 		-- Link (invisible)
-	local tag = links:GetTag(object)
--- :/
 	if is_set then
+		SetN = SetN or MeasureDummyRow(agroup, AddSetRow)
+
+		agroup.m_append, agroup.m_delete, agroup.m_rown = AddSetRow, DeleteSetRow, SetN
 		-- "+" -> append instance
 		-- Name field, to assign the label
 		-- insert / delete into / from set
 		-- b = name field
 		-- c = link
 	else
+		ArrayN = ArrayN or MeasureDummyRow(agroup, AddArrayRow)
+
+		agroup.m_append, agroup.m_delete, agroup.m_rown = AddArrayRow, DeleteArrayRow, ArrayN
+
 		local arr = {}
 
 		for _, instance in tag_db:Sublinks(tag, sub) do
@@ -260,13 +349,9 @@ local function SubBox (tag_db, group, object, sub, is_source, is_set)
 -- ^^^ Do this wherever Add / Delete is... also on initial population
 -- Keep a tally to allow reserving room?
 -- Need to account for empty case, so minimum space (probably also to include "+")
-	return sbgroup
+	return agroup
 end
 
--- --
-local BoxID = 0
-
---
 local function SublinkInfo (info, tag_db, tag, sub)
 	local iinfo = info and info[sub]
 	local itype, is_source = iinfo and type(iinfo), tag_db:ImplementedBySublink(tag, sub, "event_source")
@@ -284,12 +369,7 @@ local function SublinkInfo (info, tag_db, tag, sub)
 end
 
 --
-local function AddPrimaryBox (group, tag_db, tag, object, sx, sy)
-	local info, name, bgroup = common.AttachLinkInfo(object, nil), common.GetValuesFromRep(object).name, display.newGroup()
-
-	group:insert(bgroup)
-
-	--
+local function AddAttachments (group, info, tag_db, tag)
 	local attachments
 
 	for _, sub in tag_db:Sublinks(tag, "templates") do
@@ -300,18 +380,21 @@ local function AddPrimaryBox (group, tag_db, tag, object, sx, sy)
 		-- These each have some UI considerations
 			-- Auxiliary box(es) of links, rather than raw links
 			-- Must also track some state for save / load / build, for labels
-		attachments[#attachments + 1] = SubBox(tag_db, group, object, sub, is_source, is_set)
+		attachments[#attachments + 1] = AttachmentBox(group, tag_db, tag, sub, is_source, is_set)
 		attachments[sub] = #attachments
 	end
 
+	return attachments
+end
+
+--
+local function AddPrimaryBox (group, tag_db, tag, object, sx, sy)
+	local info, name, bgroup = common.AttachLinkInfo(object, nil), common.GetValuesFromRep(object).name, display.newGroup()
+
+	group:insert(bgroup)
+
 	--
-	for _, sub in tag_db:Sublinks(tag, "instances") do
-		-- populate box(es), in case of a load
-		-- must be able to tie these to the object
-			-- probably the same state that must maintain for save / load
-		-- should we just do this when iterating templates?
-			-- somehow need to keep per-object distinction on hand anyhow...
-	end
+	local attachments = AddAttachments(group, info, tag_db, tag)
 
 	for _, sub in tag_db:Sublinks(tag, "no_instances") do
 		local ai, iinfo, is_source, text = attachments and attachments[sub], SublinkInfo(info, tag_db, tag, sub)
@@ -332,13 +415,11 @@ local function AddPrimaryBox (group, tag_db, tag, object, sx, sy)
 
 		--
 		if ai then
-			local sbox = attachments[ai]
-			-- TODO: just a link_group.Connect(link, sbox, false, Links:GetGroups())?
+			connections.LinkAttachment(link, attachments[ai])
+
 			link.isVisible = false
 		else
-			connections.AddLink(BoxID, not is_source, link)
-
-			link.m_obj, link.m_sub = object, sub
+			IntegrateLink(link, object, sub, is_source)
 		end
 
 		--
@@ -346,38 +427,31 @@ local function AddPrimaryBox (group, tag_db, tag, object, sx, sy)
 	end
 
 	--
-	local w, h = box_layout.GetSize()
-	local ntext = display.newText(bgroup, name, 0, 0, native.systemFont, 12)
+	local box, ntext = AddBoxAtSpot(bgroup, name, sx, sy)
 
-	ntext:setFillColor(0)
+	connections.AddNodeList(NodeListIndex)
 
-	-- Make a new box at this spot.
-	local box = cells.NewBox(bgroup, sx, sy, max(w, ntext.width) + 35, h + 30, 12)
+	box.m_attachments, box.m_node_list_index = attachments, NodeListIndex
 
-	box_layout.AddNameAndCommit(box, ntext, 10, 30, 10)
-
-	box:addEventListener("touch", DragTouch)
-	box:setFillColor(.375, .675)
-	box:setStrokeColor(.125)
-	box:toBack()
-
-	box.strokeWidth = 2
-
-	box.m_attachments, box.m_id = attachments, BoxID
-
-	connections.AddNodeList(BoxID)
-
-	BoxID = BoxID + 1
+	NodeListIndex = NodeListIndex + 1
 
 	return box, ntext
 end
 
+local function RemoveBox (box)
+	cells.RemoveFromCell(ItemGroup, box)
+
+	box.parent:removeSelf()
+end
+
 --
 local function RemoveAttachment (tag_db, sbox, tag)
-	for k = 1, sbox.numChildren do
-		tag = tag or tag_db:GetTag(sbox[k].m_obj)
+	local links = sbox.parent.links
 
-		local instance = sbox[k].m_sub -- ??
+	for k = 1, links.numChildren do
+		tag = tag or tag_db:GetTag(links[k].m_obj)
+
+		local instance = links[k].m_sub
 
 		common.SetLabel(instance, nil)
 
@@ -397,15 +471,13 @@ local function RemoveDeadObjects ()
 	for _, state in objects.IterateRemovedObjects() do
 		local box, tag = state.m_box
 
-		connections.RemoveNodeList(box.m_id)
+		connections.RemoveNodeList(box.m_node_list_index)
 
 		for j = 1, #(box.m_attachments or "") do
 			tag = RemoveAttachment(tag_db, box.m_attachments[j], tag)
 		end
 
-		cells.RemoveFromCell(ItemGroup, box)
-
-		box.parent:removeSelf()
+		RemoveBox(box)
 	end	
 end
 
@@ -455,7 +527,7 @@ end
 
 --- DOCMAYBE
 function M.Unload ()
-	BoxesSeen, Group, ItemGroup = nil
+	Group, ItemGroup = nil
 
 	box_layout.Unload()
 	cells.Unload()

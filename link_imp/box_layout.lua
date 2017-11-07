@@ -35,6 +35,7 @@ local display = display
 
 -- Cached module references --
 local _Arrange_
+local _GetLineWidth_
 
 -- Exports --
 local M = {}
@@ -45,8 +46,7 @@ local M = {}
 
 --- DOCME
 function M.AddLine (group, left_object, right_object, link, last_count, spacing)
-	--
-	local w, line = layout.RightOf(right_object) - layout.LeftOf(left_object), (group.m_line or 0) + 1
+	local w, line = _GetLineWidth_(left_object, right_object), (group.m_line or 0) + 1
 
 	group.m_w = max(group.m_w or 0, w)
 
@@ -111,7 +111,7 @@ function M.AddNameAndCommit (box, name, hmargin, vmargin, nmargin)
 end
 
 --- DOCME
-function M.Append (box)
+function M.Append (box, instance)
 	-- row with these elements
 		-- delete
 		-- "key:" (possible, in sets), just a label
@@ -151,6 +151,11 @@ function M.ChooseLeftOrRightGroup (bgroup, is_source)
 	end
 
 	return LeftAndRightGroup[gi]
+end
+
+--- DOCME
+function M.GetLineWidth (left_object, right_object)
+	return layout.RightOf(right_object) - layout.LeftOf(left_object)
 end
 
 local function FindBottom (group)
@@ -241,6 +246,8 @@ function M.RemoveRow (box, row)
 		-- same for links[row], but move back slot
 	-- shrink heights by dy
 	-- ^^^ some similar stuff for Append
+	-- in arrays, enable or disable arrows as necessary
+		-- for that matter, leave these in place and only remove last row, avoiding need to update index
 end
 
 --- DOCME
@@ -248,10 +255,11 @@ function M.SwapRows (box, row1, row2)
 	-- very basic if rows are fixed size, otherwise need to pull up below max(row1, row2) and 
 		-- pull down beyond min(row1, row2)...
 	-- fixed size sounding pretty good, actually... just need to account for numbers? (not sure how text field looks)
-	--in first case just swap positions (plus row values) and entries in links
+	-- in first case just swap positions (plus row values) and entries in links
+		-- leave arrows in place (enable, disable etc.)
 	-- aside from link could maybe just edit the contents of each element, rather than moving them
 	-- loop must take some care, since ranges could be adjacent
-		-- but will always be same number of elements for format (array or set)?
+		-- but will always be same number of elements for format (array or set)? (just make arrows invisible on top / bottom row)
 		-- ^^^ If so could use these counts to find position instead
 end
 
@@ -269,6 +277,7 @@ end
 
 -- Cache module members.
 _Arrange_ = M.Arrange
+_GetLineWidth_ = M.GetLineWidth
 
 -- Export the module.
 return M

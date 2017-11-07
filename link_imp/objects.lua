@@ -31,6 +31,9 @@ local pairs = pairs
 local ipairs = ipairs
 local sort = table.sort
 
+-- Modules --
+local common = require("s3_editor.Common")
+
 -- Corona globals --
 local display = display
 
@@ -100,8 +103,10 @@ local function OnRemove (object)
 end
 
 --- DOCME
-function M.Load (links)
+function M.Load ()
 	Index, Tagged, ToRemove, ToSort = 1, {}, {}, {}
+
+	local links = common.GetLinks()
 
 	links:SetAssignFunc(OnAssign)
 	links:SetRemoveFunc(OnRemove)
