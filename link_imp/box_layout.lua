@@ -111,6 +111,15 @@ function M.AddNameAndCommit (box, name, hmargin, vmargin, nmargin)
 end
 
 --- DOCME
+function M.Append (box)
+	-- row with these elements
+		-- delete
+		-- "key:" (possible, in sets), just a label
+		-- text field (sets, to assign key) or number (arrays, to mark position)
+		-- link
+end
+
+--- DOCME
 function M.Arrange (is_source, offset, a, b, c, d, e, f)
 	if is_source then
 		if f then -- quick and dirty alternative to some sort of gather -> sort -> unpack
@@ -217,8 +226,45 @@ function M.Load ()
 end
 
 --- DOCME
+function M.RemoveRow (box, row)
+	-- for each object with row = row
+		-- find minimum y
+		-- remove element
+	-- remove links[row]
+	-- more rows?
+		-- dy = min y - prev min y
+	-- else
+		-- dy = difference to bottom margin
+	-- for each remaining row
+		-- move all elements up by dy
+		-- decrement row
+		-- same for links[row], but move back slot
+	-- shrink heights by dy
+	-- ^^^ some similar stuff for Append
+end
+
+--- DOCME
+function M.SwapRows (box, row1, row2)
+	-- very basic if rows are fixed size, otherwise need to pull up below max(row1, row2) and 
+		-- pull down beyond min(row1, row2)...
+	-- fixed size sounding pretty good, actually... just need to account for numbers? (not sure how text field looks)
+	--in first case just swap positions (plus row values) and entries in links
+	-- aside from link could maybe just edit the contents of each element, rather than moving them
+	-- loop must take some care, since ranges could be adjacent
+		-- but will always be same number of elements for format (array or set)?
+		-- ^^^ If so could use these counts to find position instead
+end
+
+--- DOCME
 function M.Unload ()
 	LeftAndRightGroup, List1, List2 = nil
+end
+
+--- DOCME
+function M.UpdateWidth (box, w)
+	-- TODO!
+	-- basically: names can change, potentially overflowing the box...
+	-- but could later shorten, too
 end
 
 -- Cache module members.
