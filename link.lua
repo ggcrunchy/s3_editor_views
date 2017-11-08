@@ -267,6 +267,31 @@ end
 --
 local ArrayN, SetN
 
+local function IndexFromInstance (instance)
+	return tonumber(common.GetLabel(instance))
+end
+
+local function Link (group)
+	local link = display.newCircle(group, 0, 0, 5)
+
+	link.strokeWidth = 1
+
+	return 1
+end
+
+local function MaxIndex (tag_db, tag, sub)
+	local count, used = 0
+
+	for _, instance in tag_db:Sublinks(tag, sub) do
+		local index = IndexFromInstance(instance)
+
+		used, count = used or {}, max(used, count)
+		used[index] = instance
+	end
+
+	return count, used
+end
+
 local function AttachmentBox (group, tag_db, tag, sub, is_source, is_set)
 	local agroup, a, b, c, d, e = display.newGroup()
 
@@ -308,22 +333,31 @@ local function AttachmentBox (group, tag_db, tag, sub, is_source, is_set)
 		-- insert / delete into / from set
 		-- b = name field
 		-- c = link
+		for _, instance in tag_db:Sublinks(tag, sub) do
+			local link = Link(agroup.links)
+
+			-- use label to assign name
+
+			IntegrateLink(link, nil, instance, is_source)
+		end
 	else
 		ArrayN = ArrayN or MeasureDummyRow(agroup, AddArrayRow)
 
 		agroup.m_append, agroup.m_delete, agroup.m_rown = AddArrayRow, DeleteArrayRow, ArrayN
 
-		local arr = {}
+		local maxn, used = MaxIndex(tag_db, tag, sub)
 
-		for _, instance in tag_db:Sublinks(tag, sub) do
-			local index = tonumber(common.GetLabel(instance))
+		for i = 1, maxn do
+			local link = Link(agroup.links)
 
-			for i = #arr + 1, index - 1 do
-				-- add instance / link for gap
-			end
+			-- put somewhere...
+			local instance = used[i] or tag_db:Instantiate(tag, sub)
 
-			-- Add new link (possibly already added when filling gap)
+			IntegrateLink(link, nil, instance, is_source)
+			-- want object here ^^^^
+			-- TODO: do we care about setting labels?
 		end
+
 		-- "+" -> add new instance with default label
 		-- 
 		-- insert / delete into / from array
@@ -399,10 +433,8 @@ local function AddPrimaryBox (group, tag_db, tag, object, sx, sy)
 	for _, sub in tag_db:Sublinks(tag, "no_instances") do
 		local ai, iinfo, is_source, text = attachments and attachments[sub], SublinkInfo(info, tag_db, tag, sub)
 		local cur = box_layout.ChooseLeftOrRightGroup(bgroup, is_source)
-		local n, link = cur.numChildren, display.newCircle(cur, 0, 0, 5)
+		local n, link = cur.numChildren, Link(cur)
 		local stext = display.newText(cur, iinfo and iinfo.friendly_name or sub, 0, 0, native.systemFont, 12)
-
-		link.strokeWidth = 1
 
 		--
 		local method, offset, lo, ro = box_layout.Arrange(is_source, 5, link, stext)

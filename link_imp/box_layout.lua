@@ -59,7 +59,7 @@ function M.AddLine (group, left_object, right_object, link, last_count, spacing)
 			group.m_y1 = min(group.m_y1 or 0, object.y - object.height / 2)
 		end
 
-		object.m_w = w
+	--	object.m_w = w
 	end
 
 	group.m_line, group.m_prev = line, link
