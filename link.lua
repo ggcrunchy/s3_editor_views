@@ -221,19 +221,27 @@ end
 local function DeleteSetRow (set, row)
 end
 
-local function MeasureDummyRow (group, add)
-	local n = group.numChildren
-	local left_object, right_object = add(group)
-	local w = box_layout.GetLineWidth(left_object, right_object)
-	local newn = group.numChildren - n
+local function MeasureRow (group, add, count)
+	if not count then
+		local items, links = group.items, group.links
+		local n, left_object, right_object, newn = links.numChildren
 
-	for i = group.numChildren, n + 1, -1 do
-		group:remove(i)
+		if links.numChildren == 0 then
+			left_object, right_object = add(group)
+			newn = items.numChildren - n
+
+			for i = items.numChildren, n + 1, -1 do
+				items:remove(i)
+			end
+
+			links:remove(links.numChildren)
+		else
+			newn = n / links.numChildren
+			left_object, right_object = items[n - newn + 1], items[n]
+		end
+
+		return newn, box_layout.GetLineWidth(left_object, right_object) -- TODO: re-add remembering width
 	end
-
-	group.links:remove(group.links.numChildren)
-
-	return newn
 end
 
 local BoxID = 0
@@ -276,7 +284,7 @@ local function Link (group)
 
 	link.strokeWidth = 1
 
-	return 1
+	return link
 end
 
 local function MaxIndex (tag_db, tag, sub)
@@ -303,9 +311,10 @@ local function AttachmentBox (group, tag_db, tag, sub, is_source, is_set)
 	-- push back
 
 	--
-	agroup.links = display.newGroup()
+	agroup.items, agroup.links = display.newGroup(), display.newGroup()
 
 	group:insert(agroup)
+	agroup:insert(agroup.items)
 	agroup:insert(agroup.links)
 --[[
 	for _, sub in tag_db:Sublinks(tag, "instances") do
@@ -324,9 +333,9 @@ local function AttachmentBox (group, tag_db, tag, sub, is_source, is_set)
 
 	-- List (anchored at top?) of entries, each with:
 		-- Link (invisible)
-	if is_set then
-		SetN = SetN or MeasureDummyRow(agroup, AddSetRow)
+	local w
 
+	if is_set then
 		agroup.m_append, agroup.m_delete, agroup.m_rown = AddSetRow, DeleteSetRow, SetN
 		-- "+" -> append instance
 		-- Name field, to assign the label
@@ -340,9 +349,9 @@ local function AttachmentBox (group, tag_db, tag, sub, is_source, is_set)
 
 			IntegrateLink(link, nil, instance, is_source)
 		end
-	else
-		ArrayN = ArrayN or MeasureDummyRow(agroup, AddArrayRow)
 
+		SetN, w = MeasureRow(agroup, AddSetRow, SetN)
+	else
 		agroup.m_append, agroup.m_delete, agroup.m_rown = AddArrayRow, DeleteArrayRow, ArrayN
 
 		local maxn, used = MaxIndex(tag_db, tag, sub)
@@ -357,6 +366,8 @@ local function AttachmentBox (group, tag_db, tag, sub, is_source, is_set)
 			-- want object here ^^^^
 			-- TODO: do we care about setting labels?
 		end
+
+		ArrayN, w = MeasureRow(agroup, AddArrayRow, ArrayN)
 
 		-- "+" -> add new instance with default label
 		-- 
@@ -490,9 +501,7 @@ local function RemoveAttachment (tag_db, sbox, tag)
 		tag_db:Release(tag, instance)
 	end
 
-	-- Remove from cell?
-
-	sbox:removeSelf()
+	RemoveBox(sbox)
 
 	return tag
 end
