@@ -65,6 +65,15 @@ function M.AddLine (group, left_object, right_object, link, last_count, spacing)
 	group.m_line, group.m_prev = line, link
 end
 
+--- DOCME
+function M.AliasToLeftAndRight (box, group1, group2, is_source)
+	if is_source then -- TODO: being lazy, might have wrong order
+		group1, group2 = group2, group1
+	end
+
+	box.m_lgroup, box.m_group = group1, group2
+end
+
 local LeftAndRightGroup
 
 --[[
@@ -178,15 +187,15 @@ end
 --- DOCME
 function M.GetSize ()
 	local lgroup, rgroup = LeftAndRightGroup[1], LeftAndRightGroup[2]
-	local w, y1, y2 = lgroup and lgroup.m_w
+	local w, y1, y2 = lgroup and lgroup.m_w or 0, 0, 0
 
-	if w and rgroup then
+	if lgroup and rgroup then
 		w = w + rgroup.m_w
 		y1 = min(lgroup.m_y1, rgroup.m_y1)
 		y2 = max(FindBottom(lgroup), FindBottom(rgroup))
-	elseif w then
+	elseif lgroup then
 		y1, y2 = lgroup.m_y1, FindBottom(lgroup)
-	else
+	elseif rgroup then
 		w, y1, y2 = rgroup.m_w, rgroup.m_y1, FindBottom(rgroup)
 	end
 

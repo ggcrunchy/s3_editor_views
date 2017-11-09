@@ -269,6 +269,8 @@ local function AddBoxAtSpot (group, name, sx, sy, min_w)
 
 	BoxID = BoxID + 1
 
+	touch.Spoof(box) -- trigger began / ended logic
+
 	return box, ntext
 end
 
@@ -300,7 +302,7 @@ local function MaxIndex (tag_db, tag, sub)
 	return count, used
 end
 
-local function AttachmentBox (group, tag_db, tag, sub, is_source, is_set)
+local function AttachmentBox (group, object, tag_db, tag, sub, sx, sy, is_source, is_set)
 	local agroup, a, b, c, d, e = display.newGroup()
 
 	-- main box
@@ -316,6 +318,8 @@ local function AttachmentBox (group, tag_db, tag, sub, is_source, is_set)
 	group:insert(agroup)
 	agroup:insert(agroup.items)
 	agroup:insert(agroup.links)
+
+	box_layout.AliasToLeftAndRight(agroup.items, agroup.links, is_source)
 --[[
 	for _, sub in tag_db:Sublinks(tag, "instances") do
 		-- populate box(es), in case of a load
@@ -347,7 +351,7 @@ local function AttachmentBox (group, tag_db, tag, sub, is_source, is_set)
 
 			-- use label to assign name
 
-			IntegrateLink(link, nil, instance, is_source)
+			IntegrateLink(link, object, instance, is_source)
 		end
 
 		SetN, w = MeasureRow(agroup, AddSetRow, SetN)
@@ -362,8 +366,7 @@ local function AttachmentBox (group, tag_db, tag, sub, is_source, is_set)
 			-- put somewhere...
 			local instance = used[i] or tag_db:Instantiate(tag, sub)
 
-			IntegrateLink(link, nil, instance, is_source)
-			-- want object here ^^^^
+			IntegrateLink(link, object, instance, is_source)
 			-- TODO: do we care about setting labels?
 		end
 
@@ -394,7 +397,7 @@ local function AttachmentBox (group, tag_db, tag, sub, is_source, is_set)
 -- ^^^ Do this wherever Add / Delete is... also on initial population
 -- Keep a tally to allow reserving room?
 -- Need to account for empty case, so minimum space (probably also to include "+")
-	return agroup
+	return AddBoxAtSpot(agroup, "WONK", sx, sy)
 end
 
 local function SublinkInfo (info, tag_db, tag, sub)
@@ -414,18 +417,18 @@ local function SublinkInfo (info, tag_db, tag, sub)
 end
 
 --
-local function AddAttachments (group, info, tag_db, tag)
-	local attachments
+local function AddAttachments (group, object, info, tag_db, tag)
+	local spot, sx, sy, attachments = -1
 
 	for _, sub in tag_db:Sublinks(tag, "templates") do
 		local iinfo, is_source = SublinkInfo(info, tag_db, tag, sub)
 		local is_set = iinfo and iinfo.is_set
 
-		attachments = attachments or {}
+		attachments, spot, sx, sy = attachments or {}, cells.FindFreeCell(spot)
 		-- These each have some UI considerations
 			-- Auxiliary box(es) of links, rather than raw links
 			-- Must also track some state for save / load / build, for labels
-		attachments[#attachments + 1] = AttachmentBox(group, tag_db, tag, sub, is_source, is_set)
+		attachments[#attachments + 1] = AttachmentBox(group, object, tag_db, tag, sub, sx, sy, is_source, is_set)
 		attachments[sub] = #attachments
 	end
 
@@ -439,7 +442,7 @@ local function AddPrimaryBox (group, tag_db, tag, object, sx, sy)
 	group:insert(bgroup)
 
 	--
-	local attachments = AddAttachments(group, info, tag_db, tag)
+	local attachments = AddAttachments(group, object, info, tag_db, tag)
 
 	for _, sub in tag_db:Sublinks(tag, "no_instances") do
 		local ai, iinfo, is_source, text = attachments and attachments[sub], SublinkInfo(info, tag_db, tag, sub)
@@ -532,7 +535,6 @@ local function AddNewObjects ()
 		local box, name = AddPrimaryBox(ItemGroup, tag_db, links:GetTag(object), object, sx, sy)
 
 		objects.AssociateBoxAndObject(object, box, name)
-		touch.Spoof(box)
 	end
 end
 
