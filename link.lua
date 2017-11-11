@@ -244,9 +244,17 @@ local function MeasureRow (group, add, count)
 	end
 end
 
-local BoxID = 0
+local BoxID, LastSpot = 0
 
-local function AddBoxAtSpot (group, name, sx, sy, min_w)
+local function FindFreeSpot ()
+	local sx, sy
+
+	LastSpot, sx, sy = cells.FindFreeCell(LastSpot)
+
+	return sx, sy
+end
+
+local function AddBoxAtSpot (group, name, min_w)
 	--
 	local w, h = box_layout.GetSize()
 	local ntext = display.newText(group, name, 0, 0, native.systemFont, 12)
@@ -254,6 +262,7 @@ local function AddBoxAtSpot (group, name, sx, sy, min_w)
 	ntext:setFillColor(0)
 
 	-- Make a new box at this spot.
+	local sx, sy = FindFreeSpot()
 	local box = cells.NewBox(group, sx, sy, max(w, ntext.width, min_w or 0) + 35, h + 30, 12)
 
 	box_layout.AddNameAndCommit(box, ntext, 10, 30, 10)
@@ -302,7 +311,7 @@ local function MaxIndex (tag_db, tag, sub)
 	return count, used
 end
 
-local function AttachmentBox (group, object, tag_db, tag, sub, sx, sy, is_source, is_set)
+local function AttachmentBox (group, object, tag_db, tag, sub, is_source, is_set)
 	local agroup, a, b, c, d, e = display.newGroup()
 
 	-- main box
@@ -397,7 +406,7 @@ local function AttachmentBox (group, object, tag_db, tag, sub, sx, sy, is_source
 -- ^^^ Do this wherever Add / Delete is... also on initial population
 -- Keep a tally to allow reserving room?
 -- Need to account for empty case, so minimum space (probably also to include "+")
-	return AddBoxAtSpot(agroup, "WONK", sx, sy)
+	return AddBoxAtSpot(agroup, "WONK")
 end
 
 local function SublinkInfo (info, tag_db, tag, sub)
@@ -418,17 +427,17 @@ end
 
 --
 local function AddAttachments (group, object, info, tag_db, tag)
-	local spot, sx, sy, attachments = -1
+	local attachments
 
 	for _, sub in tag_db:Sublinks(tag, "templates") do
 		local iinfo, is_source = SublinkInfo(info, tag_db, tag, sub)
 		local is_set = iinfo and iinfo.is_set
 
-		attachments, spot, sx, sy = attachments or {}, cells.FindFreeCell(spot)
+		attachments = attachments or {}
 		-- These each have some UI considerations
 			-- Auxiliary box(es) of links, rather than raw links
 			-- Must also track some state for save / load / build, for labels
-		attachments[#attachments + 1] = AttachmentBox(group, object, tag_db, tag, sub, sx, sy, is_source, is_set)
+		attachments[#attachments + 1] = AttachmentBox(group, object, tag_db, tag, sub, is_source, is_set)
 		attachments[sub] = #attachments
 	end
 
@@ -436,7 +445,7 @@ local function AddAttachments (group, object, info, tag_db, tag)
 end
 
 --
-local function AddPrimaryBox (group, tag_db, tag, object, sx, sy)
+local function AddPrimaryBox (group, tag_db, tag, object)
 	local info, name, bgroup = common.AttachLinkInfo(object, nil), common.GetValuesFromRep(object).name, display.newGroup()
 
 	group:insert(bgroup)
@@ -463,7 +472,7 @@ local function AddPrimaryBox (group, tag_db, tag, object, sx, sy)
 		if ai then
 			connections.LinkAttachment(link, attachments[ai])
 
-			link.isVisible = false
+			link.alpha = .025
 		else
 			IntegrateLink(link, object, sub, is_source)
 		end
@@ -473,7 +482,7 @@ local function AddPrimaryBox (group, tag_db, tag, object, sx, sy)
 	end
 
 	--
-	local box, ntext = AddBoxAtSpot(bgroup, name, sx, sy)
+	local box, ntext = AddBoxAtSpot(bgroup, name)
 
 	connections.AddNodeList(NodeListIndex)
 
@@ -526,13 +535,13 @@ local function RemoveDeadObjects ()
 end
 
 local function AddNewObjects ()
-	local links, spot, sx, sy = common.GetLinks(), -1
+	local links = common.GetLinks()
 	local tag_db = links:GetTagDatabase()
 
-	for _, object in objects.IterateNewObjects() do
-		spot, sx, sy = cells.FindFreeCell(spot)
+	LastSpot = -1
 
-		local box, name = AddPrimaryBox(ItemGroup, tag_db, links:GetTag(object), object, sx, sy)
+	for _, object in objects.IterateNewObjects() do
+		local box, name = AddPrimaryBox(ItemGroup, tag_db, links:GetTag(object), object)
 
 		objects.AssociateBoxAndObject(object, box, name)
 	end
