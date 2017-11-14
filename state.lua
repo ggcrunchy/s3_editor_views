@@ -25,6 +25,7 @@
 
 -- Standard library imports --
 local ipairs = ipairs
+local pairs = pairs
 
 -- Modules --
 local actions = require("s3_utils.state.actions")
@@ -68,13 +69,13 @@ end), list_views.EditErase(ValueDialog, function()
 end)
 
 --
-local function Lists (str, prefix, view, top, r, g, b, names)
+local function Lists (str, view, top, r, g, b, names)
 	local text = display.newText(Group, str, 0, 0, native.systemFont, layout.ResolveY("5%"))
 
 	layout.PutRightOf(text, "15.625%")
 	layout.PutBelow(text, top)
 
-	local list, bottom = view:Load(Group, prefix, layout.Below(text), layout.LeftOf(text))
+	local list, bottom = view:Load(Group, layout.Below(text), layout.LeftOf(text))
 
 	common_ui.Frame(list, r, g, b)
 
@@ -118,8 +119,8 @@ function M.Load (view)
 	ValueTypes = values.GetTypes()
 
 	--
-	local action_list, abot, achoices = Lists("Actions", "action", ActionView, "16.67%", 0, 0, 1, ActionTypes)
-	local value_list, vbot, vchoices = Lists("Values", "value", ValueView, abot + layout.ResolveY("3.125%"), 0, 1, 0, ValueTypes)
+	local action_list, abot, achoices = Lists("Actions", ActionView, "16.67%", 0, 0, 1, ActionTypes)
+	local value_list, vbot, vchoices = Lists("Values", ValueView, abot + layout.ResolveY("3.125%"), 0, 1, 0, ValueTypes)
 
 	ActionChoices = achoices
 	ValueChoices = vchoices
@@ -186,7 +187,7 @@ for k, v in pairs{
 			value_builds = events.BuildEntry(level, values, ventry, value_builds)
 		end
 
-		level.actions, level.values = action_builds, value_builds
+		level.action, level.value = action_builds, value_builds
 	end,
 
 	-- Load Level WIP --

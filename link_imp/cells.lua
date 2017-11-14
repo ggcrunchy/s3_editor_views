@@ -36,9 +36,13 @@ local pairs = pairs
 -- Modules --
 local grid = require("tektite_core.array.grid")
 local morton = require("number_sequences.morton")
+local touch = require("corona_ui.utils.touch")
 
 -- Corona globals --
 local display = display
+
+-- Cached module references --
+local _FindFreeCell_
 
 --
 --
@@ -79,13 +83,6 @@ M.AddToCell = VisitCells(function(cell, box, num)
 end)
 
 --- DOCME
-M.RemoveFromCell = VisitCells(function(cell, box)
-	if cell then
-		cell[box] = nil
-	end
-end)
-
---- DOCME
 function M.FindFreeCell (last_spot)
 	repeat
 		last_spot = last_spot + 1
@@ -94,6 +91,23 @@ function M.FindFreeCell (last_spot)
 	until (cell and next(cell, nil)) == nil
 
 	return last_spot, morton.MortonPair(last_spot)
+end
+
+--- DOCME
+function M.FindFreeCell_LeftOrRight (last_spot, x, how)
+	local ok, sx, sy
+
+	repeat
+		last_spot, sx, sy = _FindFreeCell_(last_spot)
+
+		if how == "left_of" then
+			ok = sx < x
+		else
+			ok = sx > x
+		end
+	until ok
+
+	return last_spot, sx, sy
 end
 
 local VisitID = 0
@@ -133,9 +147,23 @@ function M.Load (cont)
 end
 
 --- DOCME
-function M.NewBox (group, sx, sy, w, h, radius)
-	return display.newRoundedRect(group, (sx + .5) * CellDim, (sy + .5) * CellDim, w, h, radius)
+function M.NewBox (group, w, h, radius)
+	return display.newRoundedRect(group, 0, 0, w, h, radius)
 end
+
+--- DOCME
+function M.PutBoxAt (box, x, y)
+	box.parent:translate((x + .5) * CellDim, (y + .5) * CellDim)
+
+	touch.Spoof(box) -- trigger began / ended logic
+end
+
+--- DOCME
+M.RemoveFromCell = VisitCells(function(cell, box)
+	if cell then
+		cell[box] = nil
+	end
+end)
 
 --- DOCME
 function M.SetCellFraction (frac)
@@ -146,6 +174,9 @@ end
 function M.Unload ()
 	Occupied = nil
 end
+
+-- Cache module members.
+_FindFreeCell_ = M.FindFreeCell
 
 -- Export the module.
 return M

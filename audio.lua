@@ -67,13 +67,13 @@ local MusicView = list_views.EditErase(MusicDialog, "music")
 local SoundView = list_views.EditErase(SoundDialog, "sound")
 
 --
-local function List (str, prefix, view, top, r, g, b)
+local function List (str, view, top, r, g, b)
 	local text = display.newText(Group, str, 0, 0, native.systemFont, layout.ResolveY("5%"))
 
 	layout.PutRightOf(text, "15.625%")
 	layout.PutBelow(text, top)
 
-	local list, bottom = view:Load(Group, prefix, layout.Below(text), layout.LeftOf(text))
+	local list, bottom = view:Load(Group, layout.Below(text), layout.LeftOf(text))
 
 	common_ui.Frame(list, r, g, b)
 
@@ -94,8 +94,8 @@ function M.Load (view)
 	Group = display.newGroup()
 
 	--
-	local music_list, mbot = List("Music tracks", "music", MusicView, "16.67%", 0, 0, 1)
-	local sound_list, sbot = List("Sound samples", "sound", SoundView, mbot + layout.ResolveY("3.125%"), 0, 1, 0)
+	local music_list, mbot = List("Music tracks", MusicView, "16.67%", 0, 0, 1)
+	local sound_list, sbot = List("Sound samples", SoundView, mbot + layout.ResolveY("3.125%"), 0, 1, 0)
 
 	--
 	Enter = checkbox.Checkbox(Group, "5%", "8.33%")

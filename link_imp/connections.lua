@@ -136,6 +136,8 @@ end
 --- DOCME
 function M.LinkAttachment (link, attachment)
 	link_group.Connect(link, attachment.primary, false, LinkGroup:GetGroups())
+
+	link.alpha, attachment.primary.alpha = .025, .025
 end
 
 --- DOCME

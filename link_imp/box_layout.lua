@@ -36,6 +36,8 @@ local display = display
 -- Cached module references --
 local _Arrange_
 local _GetLineWidth_
+local _GetY1_
+local _LeftAndRight_
 
 -- Exports --
 local M = {}
@@ -45,36 +47,81 @@ local M = {}
 --
 
 --- DOCME
-function M.AddLine (group, left_object, right_object, link, last_count, spacing)
-	local w, line = _GetLineWidth_(left_object, right_object), (group.m_line or 0) + 1
+function M.AddLine (group, left_object, right_object, spacing, lowest)
+	local w, line, n = _GetLineWidth_(left_object, right_object), (group.m_line or 0) + 1, group.numChildren
 
 	group.m_w = max(group.m_w or 0, w)
 
-	for i = last_count + 1, group.numChildren do
+	for i = (group.m_last_count or 0) + 1, group.numChildren do
 		local object = group[i]
 
 		if line > 1 then
 			layout.PutBelow(object, group.m_prev, spacing)
 		else
-			group.m_y1 = min(group.m_y1 or 0, object.y - object.height / 2)
+			group.m_y1 = min(group.m_y1 or 0, _GetY1_(object))
 		end
-
 	--	object.m_w = w
 	end
 
-	group.m_line, group.m_prev = line, link
+	group.m_last_count, group.m_line, group.m_prev = n, line, lowest
 end
 
 --- DOCME
-function M.AliasToLeftAndRight (box, group1, group2, is_source)
-	if is_source then -- TODO: being lazy, might have wrong order
-		group1, group2 = group2, group1
+function M.Append (box, instance)
+	-- row with these elements
+		-- delete
+		-- "key:" (possible, in sets), just a label
+		-- text field (sets, to assign key) or number (arrays, to mark position)
+		-- link
+end
+
+--- DOCME
+function M.Arrange (is_source, offset, a, b, c, d, e, f)
+	local method
+
+	if is_source then
+		method, offset = layout.PutLeftOf, -offset
+	else
+		method = layout.PutRightOf
 	end
 
-	box.m_lgroup, box.m_group = group1, group2
+	if b then
+		method(b, a, offset)
+	end
+
+	if c then
+		method(c, b, offset)
+	end
+
+	if d then
+		method(d, c, offset)
+	end
+
+	if e then
+		method(e, d, offset)
+	end
+
+	if f then
+		method(f, e, offset)
+	end
+
+	return _LeftAndRight_(is_source, a, b, c, d, e, f)
 end
 
 local LeftAndRightGroup
+
+--- DOCME
+function M.ChooseLeftOrRightGroup (bgroup, is_source)
+	local gi = is_source and 2 or 1
+
+	if not LeftAndRightGroup[gi] then
+		LeftAndRightGroup[gi] = display.newGroup()
+
+		bgroup:insert(LeftAndRightGroup[gi])
+	end
+
+	return LeftAndRightGroup[gi]
+end
 
 --[[
 TODO: might be superfluous
@@ -96,9 +143,9 @@ end
 ]]
 
 --- DOCME
-function M.AddNameAndCommit (box, name, hmargin, vmargin, nmargin)
+function M.CommitLeftAndRightGroups (box, hmargin, vmargin)
 	local lgroup, rgroup = LeftAndRightGroup[1], LeftAndRightGroup[2]
-	local hw, y0 = box.width / 2, box.y - box.height / 2
+	local hw, y1 = box.width / 2 - hmargin, _GetY1_(box) + vmargin
 --[[
 	TODO: unnecessary?
 
@@ -106,60 +153,15 @@ function M.AddNameAndCommit (box, name, hmargin, vmargin, nmargin)
 	Align(lgroup, true)
 ]]
 	if lgroup then
-		box.m_lgroup, lgroup.x, lgroup.y = lgroup, box.x - hw + hmargin, y0 + vmargin
+		box.m_lgroup, lgroup.x, lgroup.y = lgroup, box.x - hw, y1
 	end
 
 	if rgroup then
-		box.m_rgroup, rgroup.x, rgroup.y = rgroup, box.x + hw - hmargin, y0 + vmargin
+		box.m_rgroup, rgroup.x, rgroup.y = rgroup, box.x + hw, y1
 		rgroup.anchorX = 1
 	end
 
-	name.x, name.y = box.x, y0 + nmargin
-
 	LeftAndRightGroup[1], LeftAndRightGroup[2] = nil
-end
-
---- DOCME
-function M.Append (box, instance)
-	-- row with these elements
-		-- delete
-		-- "key:" (possible, in sets), just a label
-		-- text field (sets, to assign key) or number (arrays, to mark position)
-		-- link
-end
-
---- DOCME
-function M.Arrange (is_source, offset, a, b, c, d, e, f)
-	if is_source then
-		if f then -- quick and dirty alternative to some sort of gather -> sort -> unpack
-			a, b, c, d, e, f = f, e, d, c, b, a
-		elseif e then
-			a, b, c, d, e = e, d, c, b, a
-		elseif d then
-			a, b, c, d = d, c, b, a
-		elseif c then
-			a, b, c = c, b, a
-		elseif b then
-			a, b = b, a
-		end
-
-		return "PutLeftOf", -offset, a, b, c, d, e, f
-	else
-		return "PutRightOf", offset, a, b, c, d, e, f
-	end
-end
-
---- DOCME
-function M.ChooseLeftOrRightGroup (bgroup, is_source)
-	local gi = is_source and 2 or 1
-
-	if not LeftAndRightGroup[gi] then
-		LeftAndRightGroup[gi] = display.newGroup()
-
-		bgroup:insert(LeftAndRightGroup[gi])
-	end
-
-	return LeftAndRightGroup[gi]
 end
 
 --- DOCME
@@ -202,6 +204,11 @@ function M.GetSize ()
 	return w, y2 - y1
 end
 
+--- DOCME
+function M.GetY1 (object)
+	return object.y - object.height / 2
+end
+
 local function AuxGroups (groups, index)
 	index = index + 1
 
@@ -228,10 +235,21 @@ function M.IterateGroupsOfLinks (box)
 	glist[#glist + 1] = box.m_rgroup
 
 	for i = 1, #(box.m_attachments or "") do
-		glist[#glist + 1] = box.m_attachments[i].links
+		glist[#glist + 1] = box.m_attachments[i].parent.links
 	end
 
 	return AuxGroups, glist, 0
+end
+
+--- DOCME
+function M.LeftAndRight (is_source, a, b, c, d, e, f)
+	local last = f or e or d or c or b or a
+
+	if is_source then
+		return last, a
+	else
+		return a, last
+	end
 end
 
 --- DOCME
@@ -287,6 +305,8 @@ end
 -- Cache module members.
 _Arrange_ = M.Arrange
 _GetLineWidth_ = M.GetLineWidth
+_GetY1_ = M.GetY1
+_LeftAndRight_ = M.LeftAndRight
 
 -- Export the module.
 return M
