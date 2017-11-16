@@ -365,21 +365,19 @@ local function Link (group)
 	return link
 end
 
-local function MaxIndex (tag_db, tag, sub, instances)
-	local count, used = 0
+local function AssembleArray (tag_db, tag, sub, instances)
+	local arr
 
 	for i = 1, #(instances or "") do
 		local instance = instances[i]
 
 		if tag_db:GetTemplate(tag, instance) == sub then
-			local index = IndexFromInstance(instance)
-
-			used, count = used or {}, max(used, count)
-			used[index] = instance
+			arr = arr or {}
+			arr[IndexFromInstance(instance)] = instance
 		end
 	end
 
-	return count, used
+	return arr
 end
 
 local LabelParams
@@ -433,15 +431,7 @@ local function AttachmentBox (group, object, tag_db, tag, sub, is_source, is_set
 	agroup:insert(agroup.items)
 	agroup:insert(agroup.fixed)
 	agroup:insert(agroup.links)
---[[
-	for _, sub in tag_db:Sublinks(tag, "instances") do
-		-- populate box(es), in case of a load
-		-- must be able to tie these to the object
-			-- probably the same state that must maintain for save / load
-		-- should we just do this when iterating templates?
-			-- somehow need to keep per-object distinction on hand anyhow...
-	end
-]]
+
 	box.m_is_source, box.m_node_list_index = is_source, NodeListIndex
 
 	function box:m_add (instance)
@@ -449,6 +439,10 @@ local function AttachmentBox (group, object, tag_db, tag, sub, is_source, is_set
 			instance = tag_db:Instantiate(tag, sub)
 
 			common.AddInstance(object, instance)
+
+			if not is_set then
+				common.SetLabel(instance, agroup.links.numChildren + 1)
+			end
 		end
 
 		local link = Link(agroup.links)
@@ -518,10 +512,10 @@ local function AttachmentBox (group, object, tag_db, tag, sub, is_source, is_set
 			end
 		end
 	else
-		local maxn, used = MaxIndex(tag_db, tag, sub, instances)
+		local arr = AssembleArray(tag_db, tag, sub, instances)
 
-		for i = 1, maxn do
-			box:m_add(used[i])
+		for i = 1, #(arr or "") do
+			box:m_add(arr)
 		end
 	end
 

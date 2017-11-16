@@ -88,10 +88,6 @@ end
 local function OnAssign (object)
 	Tagged[object] = false -- exists but no box yet (might already have links, though)
 
-	-- has template sublinks?
-		-- attach appropriate box(es) (or get data ready, anyhow)
-		-- put appropriate data in instance <-> label map
-
 	object.m_link_index, Index = Index, Index + 1
 end
 
@@ -99,8 +95,6 @@ local function OnRemove (object)
 	ToRemove[#ToRemove + 1], Tagged[object] = Tagged[object]
 
 	common.RemoveInstance(object, "all")
-	-- has template sublinks?
-		-- remove instance / label from map
 end
 
 --- DOCME

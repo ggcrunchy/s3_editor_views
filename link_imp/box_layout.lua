@@ -60,7 +60,6 @@ function M.AddLine (group, left_object, right_object, spacing, lowest)
 		else
 			group.m_y1 = min(group.m_y1 or 0, _GetY1_(object))
 		end
-	--	object.m_w = w
 	end
 
 	group.m_last_count, group.m_line, group.m_prev = n, line, lowest
