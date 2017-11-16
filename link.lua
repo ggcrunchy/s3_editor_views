@@ -445,9 +445,11 @@ local function AttachmentBox (group, object, tag_db, tag, sub, is_source, is_set
 	box.m_is_source, box.m_node_list_index = is_source, NodeListIndex
 
 	function box:m_add (instance)
-		instance = instance or tag_db:Instantiate(tag, sub)
+		if not instance then
+			instance = tag_db:Instantiate(tag, sub)
 
-		common.AddInstance(object, instance)
+			common.AddInstance(object, instance)
+		end
 
 		local link = Link(agroup.links)
 		local ibox = display.newRect(agroup.items, self.x, 0, self.width + (is_set and 15 or 0), is_set and 30 or 15)
