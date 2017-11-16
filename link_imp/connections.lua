@@ -87,10 +87,12 @@ local DoingLinks
 
 --
 local function FindLink (box, sub)
+--	print("BOX",box,sub)
 	for _, group in box_layout.IterateGroupsOfLinks(box) do
+--print("G",group)
 		for i = 1, group.numChildren do
 			local item = group[i]
-
+--vdump(item)
 			if item.m_sub == sub then
 				return item
 			end
@@ -101,17 +103,17 @@ end
 --
 local function DoLinks (links, group, object)
 	for i = 1, group.numChildren do
-		local lobj = group[i]
-		local lsub = lobj.m_sub
+		local link1 = group[i]
+		local lsub = link1.m_sub
 
 		if lsub then
 			for link in links:Links(object, lsub) do
 				DoingLinks = DoingLinks or {}
 
 				if not DoingLinks[link] then
-					local obj, osub = link:GetOtherObject(object)
-					local node = LinkGroup:ConnectObjects(lobj, FindLink(objects.GetBox(obj), osub))
-
+					local other, osub = link:GetOtherObject(object)
+					local node = LinkGroup:ConnectObjects(link1, FindLink(objects.GetBox(other), osub))
+-- ^^^ ARGH
 					node.m_link, DoingLinks[link] = link, true
 				end
 			end

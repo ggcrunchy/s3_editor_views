@@ -98,6 +98,7 @@ end
 local function OnRemove (object)
 	ToRemove[#ToRemove + 1], Tagged[object] = Tagged[object]
 
+	common.RemoveInstance(object, "all")
 	-- has template sublinks?
 		-- remove instance / label from map
 end

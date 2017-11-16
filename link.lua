@@ -259,6 +259,8 @@ local Delete = touch.TouchHelperFunc(function(_, button)
 	RemoveRow(agroup.items, row, nlinks)
 	RemoveRow(agroup.links, row, nlinks)
 	RemoveRange(fixed, nfixed, nfixed / nlinks)
+
+	common.RemoveInstance(button.m_object, button.m_instance)
 end)
 
 local function FindRow (drag_box, box, links)
@@ -363,14 +365,18 @@ local function Link (group)
 	return link
 end
 
-local function MaxIndex (tag_db, tag, sub)
+local function MaxIndex (tag_db, tag, sub, instances)
 	local count, used = 0
 
-	for _, instance in tag_db:Sublinks(tag, sub) do
-		local index = IndexFromInstance(instance)
+	for i = 1, #(instances or "") do
+		local instance = instances[i]
 
-		used, count = used or {}, max(used, count)
-		used[index] = instance
+		if tag_db:GetTemplate(tag, instance) == sub then
+			local index = IndexFromInstance(instance)
+
+			used, count = used or {}, max(used, count)
+			used[index] = instance
+		end
 	end
 
 	return count, used
@@ -441,6 +447,8 @@ local function AttachmentBox (group, object, tag_db, tag, sub, is_source, is_set
 	function box:m_add (instance)
 		instance = instance or tag_db:Instantiate(tag, sub)
 
+		common.AddInstance(object, instance)
+
 		local link = Link(agroup.links)
 		local ibox = display.newRect(agroup.items, self.x, 0, self.width + (is_set and 15 or 0), is_set and 30 or 15)
 		local below = self.y + self.height / 2
@@ -482,7 +490,7 @@ local function AttachmentBox (group, object, tag_db, tag, sub, is_source, is_set
 		delete.strokeWidth = 2
 		delete.x = self.x + (is_source and -hw or hw)
 
-		delete.m_row = n
+		delete.m_instance, delete.m_object, delete.m_row = instance, object, n
 
 		if is_set then
 			local text = button.Button_XY(agroup.items, ibox.x, ibox.y, ibox.width * .75, ibox.height * .8, EditLabel, ButtonOpts)
@@ -497,12 +505,18 @@ local function AttachmentBox (group, object, tag_db, tag, sub, is_source, is_set
 		IntegrateLink(link, object, instance, is_source, self.m_node_list_index)
 	end
 
+	local instances = common.GetInstances(object)
+
 	if is_set then
-		for _, instance in tag_db:Sublinks(tag, sub) do
-			box:m_add(instance)
+		for i = 1, #(instances or "") do
+			local instance = instances[i]
+
+			if tag_db:GetTemplate(tag, instance) == sub then
+				box:m_add(instance)
+			end
 		end
 	else
-		local maxn, used = MaxIndex(tag_db, tag, sub)
+		local maxn, used = MaxIndex(tag_db, tag, sub, instances)
 
 		for i = 1, maxn do
 			box:m_add(used[i])
@@ -592,7 +606,6 @@ local function AddPrimaryBox (group, tag_db, tag, object)
 		--
 		if ai then
 			connections.LinkAttachment(link, attachments[ai])
-			-- TODO: patch in (id, is_source)
 		else
 			IntegrateLink(link, object, sub, is_source)
 		end
