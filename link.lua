@@ -239,14 +239,23 @@ local function RemoveRange (list, last, n)
 	end
 end
 
+local function Shift (items, shift, a, b, step)
+	for i = a, b, step do
+		local from = items[i + shift].m_instance
+
+		if from then
+			common.SetLabel(items[i].m_instance, common.GetLabel(from))
+		end
+
+		items[i].y = items[i + shift].y
+	end
+end
+
 local function RemoveRow (list, row, nlinks)
 	local n = list.numChildren / nlinks
 	local last = row * n
 
-	for i = list.numChildren, last + 1, -1 do
-		list[i].y = list[i - n].y
-	end
-
+	Shift(list, -n, list.numChildren, last + 1, -1)
 	RemoveRange(list, last, n)
 end
 
@@ -276,13 +285,17 @@ local function MoveRow (items, links, from, to)
 		local tpos = ti - n + 1
 
 		for i = 0, n - 1 do
+			local from_instance = items[ti - i].m_instance
+
+			if from_instance then
+				items[fi - i].m_old_label = common.GetLabel(from_instance)
+			end
+
 			items[fi - i].m_y = items[ti - i].y
 		end
 
 		if from < to then -- shift elements up
-			for i = ti, fi + 1, -1 do
-				items[i].y = items[i - n].y
-			end
+			Shift(items, -n, ti, fi + 1, -1)
 
 			for i = 0, n - 1 do -- gather these somewhere else to avoid figuring out insert() indices...
 				links:insert(items[fi - i])
@@ -292,9 +305,7 @@ local function MoveRow (items, links, from, to)
 				items:insert(tpos, links[links.numChildren - n + i])
 			end
 		else -- shift elements down
-			for i = ti - n + 1, fi - n do
-				items[i].y = items[i + n].y
-			end
+			Shift(items, n, ti - n + 1, fi - n)
 
 			for _ = 1, n do
 				items:insert(tpos, items[fi])
@@ -304,7 +315,11 @@ local function MoveRow (items, links, from, to)
 		for i = 0, n - 1 do
 			local item = items[ti - i]
 
-			item.y = item.m_y
+			if item.m_old_label then
+				common.SetLabel(item.m_instance, item.m_old_label)
+			end
+
+			item.y, item.m_old_label, item.m_y = item.m_y
 		end
 	end
 end
@@ -435,16 +450,6 @@ local function AttachmentBox (group, object, tag_db, tag, sub, is_source, is_set
 	box.m_is_source, box.m_node_list_index = is_source, NodeListIndex
 
 	function box:m_add (instance)
-		if not instance then
-			instance = tag_db:Instantiate(tag, sub)
-
-			common.AddInstance(object, instance)
-
-			if not is_set then
-				common.SetLabel(instance, agroup.links.numChildren + 1)
-			end
-		end
-
 		local link = Link(agroup.links)
 		local ibox = display.newRect(agroup.items, self.x, 0, self.width + (is_set and 15 or 0), is_set and 30 or 15)
 		local below = self.y + self.height / 2
@@ -454,6 +459,18 @@ local function AttachmentBox (group, object, tag_db, tag, sub, is_source, is_set
 		ibox:setStrokeColor(random(), random(), random())
 
 		ibox.strokeWidth = 2
+
+		if not instance then
+			instance = tag_db:Instantiate(tag, sub)
+
+			common.AddInstance(object, instance)
+
+			if not is_set then
+				ibox.m_instance = instance
+
+				common.SetLabel(instance, agroup.links.numChildren + 1)
+			end
+		end
 
 		if not self.m_drag then
 			self.m_drag = display.newRect(agroup, 0, 0, ibox.width, ibox.height)
