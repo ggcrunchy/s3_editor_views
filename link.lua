@@ -239,8 +239,8 @@ local function RemoveRange (list, last, n)
 	end
 end
 
-local function Shift (items, shift, a, b, step)
-	for i = a, b, step do
+local function Shift (items, shift, a, b)
+	for i = a, b, shift > 0 and 1 or -1 do
 		local from = items[i + shift].m_instance
 
 		if from then
@@ -255,7 +255,7 @@ local function RemoveRow (list, row, nlinks)
 	local n = list.numChildren / nlinks
 	local last = row * n
 
-	Shift(list, -n, list.numChildren, last + 1, -1)
+	Shift(list, -n, list.numChildren, last + 1)
 	RemoveRange(list, last, n)
 end
 
@@ -272,56 +272,67 @@ local Delete = touch.TouchHelperFunc(function(_, button)
 	common.RemoveInstance(button.m_object, button.m_instance)
 end)
 
-local function FindRow (drag_box, box, links)
-	local row = array_index.FitToSlot(drag_box.y, box.y + box.height / 2, drag_box.height)
+local function GetFromItemInfo (items, fi, ti, n)
+	for i = 0, n - 1 do
+		local from_instance = items[ti - i].m_instance
 
-	return (row >= 1 and row <= links.numChildren) and row
+		if from_instance then
+			items[fi - i].m_old_label = common.GetLabel(from_instance)
+		end
+
+		items[fi - i].m_y = items[ti - i].y
+	end
+end
+
+local function SetToItemInfo (items, fi, ti, n)
+	for i = 0, n - 1 do
+		local item = items[ti - i]
+
+		if item.m_old_label then
+			common.SetLabel(item.m_instance, item.m_old_label)
+		end
+
+		item.y, item.m_old_label, item.m_y = item.m_y
+	end
+end
+
+local function AuxMoveRow (items, stash, fi, ti, n)
+	GetFromItemInfo(items, fi, ti, n)
+
+	local tpos = ti - n + 1
+
+	if fi < ti then
+		Shift(items, -n, ti, fi + 1)
+	else
+		Shift(items, n, tpos, fi - n)
+	end
+
+	for i = 0, n - 1 do -- to avoid having to reason about how insert() works with elements already in the group,
+						-- temporarily put them somewhere else, in reverse order...
+		stash:insert(items[fi - i])
+	end
+
+	for i = 1, n do -- ...then stitch them back in where they belong
+		items:insert(tpos, stash[stash.numChildren - n + i])
+	end
+
+	SetToItemInfo(items, fi, ti, n)
 end
 
 local function MoveRow (items, links, from, to)
 	if from ~= to then
 		local n = items.numChildren / links.numChildren
 		local fi, ti = from * n, to * n
-		local tpos = ti - n + 1
 
-		for i = 0, n - 1 do
-			local from_instance = items[ti - i].m_instance
-
-			if from_instance then
-				items[fi - i].m_old_label = common.GetLabel(from_instance)
-			end
-
-			items[fi - i].m_y = items[ti - i].y
-		end
-
-		if from < to then -- shift elements up
-			Shift(items, -n, ti, fi + 1, -1)
-
-			for i = 0, n - 1 do -- gather these somewhere else to avoid figuring out insert() indices...
-				links:insert(items[fi - i])
-			end
-
-			for i = 1, n do -- ...then put them in the obvious spot
-				items:insert(tpos, links[links.numChildren - n + i])
-			end
-		else -- shift elements down
-			Shift(items, n, ti - n + 1, fi - n)
-
-			for _ = 1, n do
-				items:insert(tpos, items[fi])
-			end
-		end
-
-		for i = 0, n - 1 do
-			local item = items[ti - i]
-
-			if item.m_old_label then
-				common.SetLabel(item.m_instance, item.m_old_label)
-			end
-
-			item.y, item.m_old_label, item.m_y = item.m_y
-		end
+		AuxMoveRow(items, links, from * n, to * n, n)
+		AuxMoveRow(links, items, from, to, 1)
 	end
+end
+
+local function FindRow (drag_box, box, links)
+	local row = array_index.FitToSlot(drag_box.y, box.y + box.height / 2, drag_box.height)
+
+	return (row >= 1 and row <= links.numChildren) and row
 end
 
 local Move = touch.TouchHelperFunc(function(event, ibox)
@@ -460,6 +471,8 @@ local function AttachmentBox (group, object, tag_db, tag, sub, is_source, is_set
 
 		ibox.strokeWidth = 2
 
+		local n = agroup.links.numChildren
+
 		if not instance then
 			instance = tag_db:Instantiate(tag, sub)
 
@@ -468,7 +481,7 @@ local function AttachmentBox (group, object, tag_db, tag, sub, is_source, is_set
 			if not is_set then
 				ibox.m_instance = instance
 
-				common.SetLabel(instance, agroup.links.numChildren + 1)
+				common.SetLabel(instance, n)
 			end
 		end
 
@@ -483,8 +496,6 @@ local function AttachmentBox (group, object, tag_db, tag, sub, is_source, is_set
 			self.m_drag.strokeWidth = 2
 			self.m_drag.isVisible = false
 		end
-
-		local n = agroup.links.numChildren
 
 		ibox.y = below + (n - .5) * ibox.height
 		link.y = ibox.y
@@ -532,7 +543,7 @@ local function AttachmentBox (group, object, tag_db, tag, sub, is_source, is_set
 		local arr = AssembleArray(tag_db, tag, sub, instances)
 
 		for i = 1, #(arr or "") do
-			box:m_add(arr)
+			box:m_add(arr[i])
 		end
 	end
 
