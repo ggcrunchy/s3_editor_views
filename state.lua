@@ -31,6 +31,7 @@ local pairs = pairs
 local actions = require("s3_utils.state.actions")
 local common = require("s3_editor.Common")
 local common_ui = require("s3_editor.CommonUI")
+local config = require("config.GlobalEvents")
 local dialog = require("s3_editor.Dialog")
 local events = require("s3_editor.Events")
 local global_events = require("s3_utils.global_events")
@@ -111,8 +112,7 @@ function M.Load (view)
 	Global = { name = "Global" }
 
 	common.BindRepAndValuesWithTag(view, Global, common.GetTag(false, global_events.EditorEvent))
-
-	-- TODO: common.AttachLinkInfo(rep, ...)
+	common.AttachLinkInfo(view, config.link_info)
 
 	--
 	ActionTypes = actions.GetTypes()
