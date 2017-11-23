@@ -81,7 +81,7 @@ local function Lists (str, view, top, r, g, b, names)
 	common_ui.Frame(list, r, g, b)
 
 	local choices = table_view_patterns.Listbox(Group, {
-		width = "30%", height = list.height, text_rect_height = "6%", text_size = "4.25%"
+		width = "30%", height = list.height, text_rect_height = "6%", text_size = "3.25%"
 	})
 
 	layout.PutRightOf(choices, list, "5%")
