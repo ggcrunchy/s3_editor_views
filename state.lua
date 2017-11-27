@@ -26,6 +26,7 @@
 -- Standard library imports --
 local ipairs = ipairs
 local pairs = pairs
+local sort = table.sort
 
 -- Modules --
 local actions = require("s3_utils.state.actions")
@@ -39,6 +40,7 @@ local grid1D = require("corona_ui.widgets.grid_1D")
 local help = require("s3_editor.Help")
 local layout = require("corona_ui.utils.layout")
 local list_views = require("s3_editor.ListViews")
+local strings = require("tektite_core.var.strings")
 local table_view_patterns = require("corona_ui.patterns.table_view")
 local values = require("s3_utils.state.values")
 
@@ -64,10 +66,14 @@ local ValueDialog = dialog.DialogWrapper(values.EditorEvent)
 
 -- --
 local ActionView, ValueView = list_views.EditErase(ActionDialog, function()
-	return ActionChoices:GetSelection()
+	return ActionChoices:GetSelectionData()
 end), list_views.EditErase(ValueDialog, function()
-	return ValueChoices:GetSelection()
+	return ValueChoices:GetSelectionData()
 end)
+
+local function GetText (data)
+	return strings.SplitIntoWords(data, "on_pattern")
+end
 
 --
 local function Lists (str, view, top, r, g, b, names)
@@ -81,7 +87,7 @@ local function Lists (str, view, top, r, g, b, names)
 	common_ui.Frame(list, r, g, b)
 
 	local choices = table_view_patterns.Listbox(Group, {
-		width = "30%", height = list.height, text_rect_height = "6%", text_size = "3.25%"
+		width = "30%", height = list.height, get_text = GetText, text_rect_height = "6%", text_size = "3.25%", use_raw_data = true
 	})
 
 	layout.PutRightOf(choices, list, "5%")
@@ -91,6 +97,8 @@ local function Lists (str, view, top, r, g, b, names)
 
 	layout.LeftAlignWith(ttext, choices)
 	layout.PutAbove(ttext, choices)
+
+	sort(names)
 
 	for _, name in ipairs(names) do
 		choices:Append(name)

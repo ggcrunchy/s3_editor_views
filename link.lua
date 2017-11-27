@@ -560,7 +560,7 @@ local function SublinkInfo (info, tag_db, tag, sub)
 			is_source = iinfo.is_source
 		end
 
-		return iinfo, is_source, iinfo.text
+		return iinfo, is_source, iinfo.friendly_name
 	else
 		return nil, is_source, itype == "string" and iinfo or nil
 	end
@@ -575,9 +575,6 @@ local function AddAttachments (group, object, info, tag_db, tag)
 		local is_set = iinfo and iinfo.is_set
 
 		attachments = attachments or {}
-		-- These each have some UI considerations
-			-- Auxiliary box(es) of links, rather than raw links
-			-- Must also track some state for save / load / build, for labels
 		attachments[#attachments + 1] = AttachmentBox(group, object, tag_db, tag, sub, is_source, is_set)
 		attachments[sub] = #attachments
 	end
@@ -618,7 +615,7 @@ local function AddPrimaryBox (group, tag_db, tag, object)
 	for _, sub in tag_db:Sublinks(tag, "no_instances") do
 		local ai, iinfo, is_source, text = attachments and attachments[sub], SublinkInfo(info, tag_db, tag, sub)
 		local cur = box_layout.ChooseLeftOrRightGroup(bgroup, is_source)
-		local link, stext = Link(cur), display.newText(cur, iinfo and iinfo.friendly_name or sub, 0, 0, native.systemFont, 12)
+		local link, stext = Link(cur), display.newText(cur, text or sub, 0, 0, native.systemFont, 12)
 
 		--
 		local lo, ro = box_layout.Arrange(is_source, 5, link, stext)
