@@ -187,36 +187,36 @@ for k, v in pairs{
 		--
 		local action_builds, value_builds
 
-		for _, aentry in pairs(level.action.entries) do
+		for _, aentry in pairs(level.actions.entries) do
 			action_builds = events.BuildEntry(level, actions, aentry, action_builds)
 		end
 
-		for _, ventry in pairs(level.value.entries) do
+		for _, ventry in pairs(level.values.entries) do
 			value_builds = events.BuildEntry(level, values, ventry, value_builds)
 		end
 
-		level.action, level.value = action_builds, value_builds
+		level.actions, level.values = action_builds, value_builds
 	end,
 
 	-- Load Level WIP --
 	load_level_wip = function(level)
 		events.LoadValuesFromEntry(level, global_events, Global, level.global_events)
-		events.LoadGroupOfValues_List(level, "action", actions, ActionView)
-		events.LoadGroupOfValues_List(level, "value", values, ValueView)
+		events.LoadGroupOfValues_List(level, "actions", actions, ActionView)
+		events.LoadGroupOfValues_List(level, "values", values, ValueView)
 	end,
 
 	-- Save Level WIP --
 	save_level_wip = function(level)
 		level.global_events = events.SaveValuesIntoEntry(level, global_events, Global, { version = 1 })
-		events.SaveGroupOfValues(level, "action", actions, ActionView)
-		events.SaveGroupOfValues(level, "value", values, ValueView)
+		events.SaveGroupOfValues(level, "actions", actions, ActionView)
+		events.SaveGroupOfValues(level, "values", values, ValueView)
 	end,
 
 	-- Verify Level WIP --
 	verify_level_wip = function(verify)
 		if verify.pass == 1 then
-			events.CheckNamesInValues("action", verify, ActionView)
-			events.CheckNamesInValues("value", verify, ValueView)
+			events.CheckNamesInValues("actions", verify, ActionView)
+			events.CheckNamesInValues("values", verify, ValueView)
 		end
 
 		events.VerifyValues(verify, actions, ActionView)

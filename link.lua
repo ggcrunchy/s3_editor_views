@@ -45,6 +45,7 @@ local cells = require("s3_editor_views.link_imp.cells")
 local common = require("s3_editor.Common")
 local common_ui = require("s3_editor.CommonUI")
 local connections = require("s3_editor_views.link_imp.connections")
+local editable = require("corona_ui.patterns.editable")
 local help = require("s3_editor.Help")
 local layout = require("corona_ui.utils.layout")
 local objects = require("s3_editor_views.link_imp.objects")
@@ -54,9 +55,6 @@ local touch = require("corona_ui.utils.touch")
 local display = display
 local native = native
 local transition = transition
-
--- Corona modules --
-local composer = require("composer")
 
 -- Exports --
 local M = {}
@@ -284,7 +282,7 @@ local function GetFromItemInfo (items, fi, ti, n)
 	end
 end
 
-local function SetToItemInfo (items, fi, ti, n)
+local function SetToItemInfo (items, _, ti, n)
 	for i = 0, n - 1 do
 		local item = items[ti - i]
 
@@ -324,7 +322,7 @@ local function MoveRow (items, links, from, to)
 		local n = items.numChildren / links.numChildren
 		local fi, ti = from * n, to * n
 
-		AuxMoveRow(items, links, from * n, to * n, n)
+		AuxMoveRow(items, links, fi, ti, n)
 		AuxMoveRow(links, items, from, to, 1)
 	end
 end
@@ -418,27 +416,17 @@ local function SetLabelText (button, text)
 	button:SetText(text)
 end
 
-local function EditLabel (button)
-	LabelParams = LabelParams or {
-		params = {
-			func = function(how, button, text)
-				if how == "get" then
-					text.text = common.GetLabel(button.m_instance)
-				elseif how == "set" then
-					SetLabelText(button, text.text)
-				elseif how == "where" then
-					return button:localToContent(0, 0)
-				end
-			end
-		}
-	}
+local EditOpts = {
+	font = "PeacerfulDay", size = layout.ResolveY("3%"),
 
-	LabelParams.params.arg = button
+	get_editable_text = function(editable)
+		return common.GetLabel(editable.m_instance)
+	end
+}
 
-	composer.showOverlay("s3_editor.overlay.GetText", LabelParams)
+local function OnTextChange (event)
+	SetLabelText(event.target, event.new_text)
 end
-
-local ButtonOpts = { skin = "small_text_button" }
 
 local function AttachmentBox (group, object, tag_db, tag, sub, is_source, is_set)
 	local agroup = display.newGroup()
@@ -517,7 +505,9 @@ local function AttachmentBox (group, object, tag_db, tag, sub, is_source, is_set
 		delete.m_instance, delete.m_object, delete.m_row = instance, object, n
 
 		if is_set then
-			local text = button.Button_XY(agroup.items, ibox.x, ibox.y, ibox.width * .75, ibox.height * .8, EditLabel, ButtonOpts)
+			local text = editable.Editable_XY(agroup.items, ibox.x, ibox.y, EditOpts)
+
+			text:addEventListener("text_change", OnTextChange)
 
 			text.m_instance = instance
 			
@@ -613,7 +603,7 @@ local function AddPrimaryBox (group, tag_db, tag, object)
 	local attachments = AddAttachments(group, object, info, tag_db, tag)
 
 	for _, sub in tag_db:Sublinks(tag, "no_instances") do
-		local ai, iinfo, is_source, text = attachments and attachments[sub], SublinkInfo(info, tag_db, tag, sub)
+		local ai, _, is_source, text = attachments and attachments[sub], SublinkInfo(info, tag_db, tag, sub)
 		local cur = box_layout.ChooseLeftOrRightGroup(bgroup, is_source)
 		local link, stext = Link(cur), display.newText(cur, text or sub, 0, 0, native.systemFont, 12)
 
@@ -717,7 +707,7 @@ end
 
 ---
 -- @pgroup view X
-function M.Enter (view)
+function M.Enter (_)
 	objects.Refresh()
 
 	RemoveDeadObjects()
