@@ -404,29 +404,23 @@ local function AssembleArray (tag_db, tag, sub, instances)
 	return arr
 end
 
-local LabelParams
-
-local function SetLabelText (button, text)
-	common.SetLabel(button.m_instance, text)
-					
-	if #text > 7 then
-		text = text:sub(1, 7) .. "..."
-	end
-
-	button:SetText(text)
-end
-
 local EditOpts = {
 	font = "PeacerfulDay", size = layout.ResolveY("3%"),
 
 	get_editable_text = function(editable)
 		return common.GetLabel(editable.m_instance)
+	end,
+
+	set_editable_text = function(editable, text)
+		common.SetLabel(editable.m_instance, text)
+						
+		if #text > 7 then
+			text = text:sub(1, 7) .. "..."
+		end
+
+		editable:GetString().text = text
 	end
 }
-
-local function OnTextChange (event)
-	SetLabelText(event.target, event.new_text)
-end
 
 local function AttachmentBox (group, object, tag_db, tag, sub, is_source, is_set)
 	local agroup = display.newGroup()
@@ -507,11 +501,9 @@ local function AttachmentBox (group, object, tag_db, tag, sub, is_source, is_set
 		if is_set then
 			local text = editable.Editable_XY(agroup.items, ibox.x, ibox.y, EditOpts)
 
-			text:addEventListener("text_change", OnTextChange)
-
 			text.m_instance = instance
-			
-			SetLabelText(text, common.GetLabel(instance) or "default")
+
+			text:SetText(common.GetLabel(instance) or "default")
 		else
 			display.newText(agroup.fixed, ("#%i"):format(n), ibox.x, ibox.y, native.systemFontBold, 10)
 		end
@@ -729,7 +721,7 @@ end
 
 --- DOCMAYBE
 function M.Unload ()
-	Group, ItemGroup, LabelParams = nil
+	Group, ItemGroup = nil
 
 	box_layout.Unload()
 	cells.Unload()
