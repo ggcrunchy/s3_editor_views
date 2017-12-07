@@ -95,17 +95,17 @@ end
 
 --- DOCME
 function M.FindFreeCell_LeftOrRight (last_spot, x, how)
-	local ok, sx, sy
+	local tries, ok, sx, sy = 0
 
 	repeat
-		last_spot, sx, sy = _FindFreeCell_(last_spot)
+		tries, last_spot, sx, sy = tries + 1, _FindFreeCell_(last_spot)
 
 		if how == "left_of" then
 			ok = sx < x
 		else
 			ok = sx > x
 		end
-	until ok
+	until ok or tries == 5
 
 	return last_spot, sx, sy
 end
