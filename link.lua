@@ -413,12 +413,8 @@ local EditOpts = {
 
 	set_editable_text = function(editable, text)
 		common.SetLabel(editable.m_instance, text)
-						
-		if #text > 7 then
-			text = text:sub(1, 7) .. "..."
-		end
 
-		editable:GetString().text = text
+		editable:SetStringText(text)
 	end
 }
 

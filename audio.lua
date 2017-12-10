@@ -180,7 +180,7 @@ end
 
 --
 local function CheckNameIntegrity (verify, list, editable, what)
-	local n, name = list:GetCount(), editable:GetString().text
+	local n, name = list:GetCount(), editable:GetText()
 
 	if n > 0 then
 		if name ~= "" then
@@ -254,8 +254,8 @@ for k, v in pairs{
 		events.SaveGroupOfValues(level, "sound", sound, SoundView)
 
 		level.music_state = {
-			enter = Enter:IsChecked(), play_on_enter = PlayOnEnter:GetString().text,
-			reset = Reset:IsChecked(), play_on_reset = PlayOnReset:GetString().text
+			enter = Enter:IsChecked(), play_on_enter = PlayOnEnter:GetText(),
+			reset = Reset:IsChecked(), play_on_reset = PlayOnReset:GetText()
 		}
 	end,
 
