@@ -241,14 +241,10 @@ local function Shift (items, shift, a, b, is_array)
 	local delta = shift > 0 and 1 or -1
 
 	for i = a, b, delta do
-	--	local from = is_array and items[i + shift].m_instance
-
-	--	if from then
 		local instance = is_array and items[i].m_instance
 
 		if instance then
 			common.SetLabel(instance, common.GetLabel(instance) + delta)
-		--	common.SetLabel(items[i].m_instance, common.GetLabel(from))
 		end
 
 		items[i].y = items[i + shift].y
@@ -274,7 +270,7 @@ local Delete = touch.TouchHelperFunc(function(_, button)
 		local instance = items[base + i].m_instance
 
 		if instance then
-			common.RemoveInstance(button.m_object, instance)--button.m_instance)
+			common.RemoveInstance(button.m_object, instance)
 		end
 	end
 
@@ -471,8 +467,6 @@ local function AttachmentBox (group, object, tag_db, tag, sub, is_source, is_set
 			common.AddInstance(object, instance)
 
 			if not is_set then
-			--	ibox.m_instance = instance
-
 				common.SetLabel(instance, n)
 			end
 		end
@@ -506,7 +500,7 @@ local function AttachmentBox (group, object, tag_db, tag, sub, is_source, is_set
 		delete.strokeWidth = 2
 		delete.x = self.x + (is_source and -hw or hw)
 
-		--[[delete.m_instance, ]]delete.m_object, delete.m_row = --[[instance, ]]object, n
+		delete.m_object, delete.m_row = object, n
 
 		if is_set then
 			local text = editable.Editable_XY(agroup.items, ibox.x, ibox.y, EditOpts)
@@ -548,7 +542,6 @@ local function SublinkInfo (info, tag_db, tag, sub)
 	local iinfo = info and info[sub]
 	local itype, is_source = iinfo and type(iinfo), tag_db:ImplementedBySublink(tag, sub, "event_source")
 
-	--
 	if itype == "table" then
 		if iinfo.is_source ~= nil then
 			is_source = iinfo.is_source
