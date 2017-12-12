@@ -237,45 +237,58 @@ local function RemoveRange (list, last, n)
 	end
 end
 
-local function Shift (items, shift, a, b)
-	for i = a, b, shift > 0 and 1 or -1 do
-		local from = items[i + shift].m_instance
+local function Shift (items, shift, a, b, is_array)
+	local delta = shift > 0 and 1 or -1
 
-		if from then
-			common.SetLabel(items[i].m_instance, common.GetLabel(from))
+	for i = a, b, delta do
+	--	local from = is_array and items[i + shift].m_instance
+
+	--	if from then
+		local instance = is_array and items[i].m_instance
+
+		if instance then
+			common.SetLabel(instance, common.GetLabel(instance) + delta)
+		--	common.SetLabel(items[i].m_instance, common.GetLabel(from))
 		end
 
 		items[i].y = items[i + shift].y
 	end
 end
 
-local function RemoveRow (list, row, nlinks)
-	local n = list.numChildren / nlinks
+local function RemoveRow (list, row, n, is_array)
 	local last = row * n
 
-	Shift(list, -n, list.numChildren, last + 1)
+	Shift(list, -n, list.numChildren, last + 1, is_array)
 	RemoveRange(list, last, n)
 end
 
 local Delete = touch.TouchHelperFunc(function(_, button)
 	local fixed = button.parent
 	local agroup = fixed.parent
-	local row, links = button.m_row, agroup.links
+	local row, items, links = button.m_row, agroup.items, agroup.links
 	local nfixed, nlinks = fixed.numChildren, links.numChildren
+	local neach = items.numChildren / nlinks -- only one link per row, but maybe more than one item
+	local base = (row - 1) * neach
 
-	RemoveRow(agroup.items, row, nlinks)
-	RemoveRow(agroup.links, row, nlinks)
-	RemoveRange(fixed, nfixed, nfixed / nlinks)
+	for i = 1, neach do
+		local instance = items[base + i].m_instance
 
-	common.RemoveInstance(button.m_object, button.m_instance)
+		if instance then
+			common.RemoveInstance(button.m_object, instance)--button.m_instance)
+		end
+	end
+
+	RemoveRow(items, row, neach, items.m_is_array)
+	RemoveRow(links, row, 1)
+	RemoveRange(fixed, nfixed, nfixed / nlinks) -- as above, in case more than one fixed object per row
 end)
 
-local function GetFromItemInfo (items, fi, ti, n)
+local function GetFromItemInfo (items, fi, ti, n, is_array)
 	for i = 0, n - 1 do
-		local from_instance = items[ti - i].m_instance
+		local from_instance = is_array and items[ti - i].m_instance
 
 		if from_instance then
-			items[fi - i].m_old_label = common.GetLabel(from_instance)
+			items[fi - i].m_old_index = common.GetLabel(from_instance)
 		end
 
 		items[fi - i].m_y = items[ti - i].y
@@ -286,23 +299,23 @@ local function SetToItemInfo (items, _, ti, n)
 	for i = 0, n - 1 do
 		local item = items[ti - i]
 
-		if item.m_old_label then
-			common.SetLabel(item.m_instance, item.m_old_label)
+		if item.m_old_index then
+			common.SetLabel(item.m_instance, item.m_old_index)
 		end
 
-		item.y, item.m_old_label, item.m_y = item.m_y
+		item.y, item.m_old_index, item.m_y = item.m_y
 	end
 end
 
-local function AuxMoveRow (items, stash, fi, ti, n)
-	GetFromItemInfo(items, fi, ti, n)
+local function AuxMoveRow (items, stash, fi, ti, n, is_array)
+	GetFromItemInfo(items, fi, ti, n, is_array)
 
 	local tpos = ti - n + 1
 
 	if fi < ti then
-		Shift(items, -n, ti, fi + 1)
+		Shift(items, -n, ti, fi + 1, is_array)
 	else
-		Shift(items, n, tpos, fi - n)
+		Shift(items, n, tpos, fi - n, is_array)
 	end
 
 	for i = 0, n - 1 do -- to avoid having to reason about how insert() works with elements already in the group,
@@ -319,10 +332,10 @@ end
 
 local function MoveRow (items, links, from, to)
 	if from ~= to then
-		local n = items.numChildren / links.numChildren
+		local n = items.numChildren / links.numChildren -- only one link per row, but maybe more than one item
 		local fi, ti = from * n, to * n
 
-		AuxMoveRow(items, links, fi, ti, n)
+		AuxMoveRow(items, links, fi, ti, n, items.m_is_array)
 		AuxMoveRow(links, items, from, to, 1)
 	end
 end
@@ -436,6 +449,7 @@ local function AttachmentBox (group, object, tag_db, tag, sub, is_source, is_set
 	agroup:insert(agroup.fixed)
 	agroup:insert(agroup.links)
 
+	agroup.items.m_is_array = not is_set
 	box.m_is_source, box.m_node_list_index = is_source, NodeListIndex
 
 	function box:m_add (instance)
@@ -457,7 +471,7 @@ local function AttachmentBox (group, object, tag_db, tag, sub, is_source, is_set
 			common.AddInstance(object, instance)
 
 			if not is_set then
-				ibox.m_instance = instance
+			--	ibox.m_instance = instance
 
 				common.SetLabel(instance, n)
 			end
@@ -492,7 +506,7 @@ local function AttachmentBox (group, object, tag_db, tag, sub, is_source, is_set
 		delete.strokeWidth = 2
 		delete.x = self.x + (is_source and -hw or hw)
 
-		delete.m_instance, delete.m_object, delete.m_row = instance, object, n
+		--[[delete.m_instance, ]]delete.m_object, delete.m_row = --[[instance, ]]object, n
 
 		if is_set then
 			local text = editable.Editable_XY(agroup.items, ibox.x, ibox.y, EditOpts)
@@ -501,6 +515,8 @@ local function AttachmentBox (group, object, tag_db, tag, sub, is_source, is_set
 
 			text:SetText(common.GetLabel(instance) or "default")
 		else
+			ibox.m_instance = instance
+
 			display.newText(agroup.fixed, ("#%i"):format(n), ibox.x, ibox.y, native.systemFontBold, 10)
 		end
 
