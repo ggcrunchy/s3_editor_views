@@ -32,6 +32,7 @@
 -- Standard library imports --
 local ipairs = ipairs
 local max = math.max
+local pairs = pairs
 local sort = table.sort
 local type = type
 
@@ -61,6 +62,9 @@ local Group
 
 -- --
 local ItemGroup
+
+-- --
+local LinkInfoEx
 
 -- --
 local X, Y = 120, 80
@@ -138,7 +142,7 @@ function M.Load (view)
 	box_layout.Load()
 
 	--
-	Group, ItemGroup = display.newGroup(), display.newGroup()
+	Group, ItemGroup, LinkInfoEx = display.newGroup(), display.newGroup(), {}
 
 	view:insert(Group)
 
@@ -267,7 +271,7 @@ local function SublinkInfo (info, tag_db, tag, sub)
 			is_source = iinfo.is_source
 		end
 
-		return iinfo, is_source, iinfo.friendly_name
+		return iinfo, is_source, iinfo.friendly_name, iinfo.about
 	else
 		return nil, is_source, itype == "string" and iinfo or nil
 	end
@@ -310,6 +314,94 @@ local function AssignPositions (primary, alist)
 	end
 end
 
+local Order, Pong
+
+local function InfoEntry (index)
+	local entry = LinkInfoEx[index]
+
+	if not entry then
+		entry = {}
+		LinkInfoEx[index] = entry
+	end
+
+	return entry
+end
+
+
+local function PutItemsInPlace (lg, n)
+	if lg then
+		Order, Pong = Order or {}, Pong or {}
+
+		for i = 1, n do
+			Order.sub, lg[i] = lg[i], false
+		end
+
+		local li, is_source
+
+		for i, ginfo in ipairs(lg) do
+			if Pong[i] then -- if usable, recycle before overwriting
+				LinkInfoEx[#LinkInfoEx + 1] = Pong[i]
+			end
+
+			if Order[ginfo] then
+				li, Order[ginfo] = Order[ginfo]
+
+				if is_source ~= nil then
+					li.is_source = is_source
+				end
+			else
+				li, n = LinkInfoEx[n + 1], n + 1
+				li.aindex, li.sub, li.wants_link = nil
+
+				if type(ginfo) == "table" then
+					if ginfo.is_source ~= nil then
+						is_source = ginfo.is_source
+					else
+						is_source = nil
+					end
+
+					li.text, li.is_source = is_source, ginfo.text
+				else
+					li.text, li.is_source = ginfo
+				end
+			end
+
+			Pong[i] = li
+		end
+
+		local index = #lg + 1
+
+		for sub, info in pairs(Order) do
+			Pong[index], index, Order[sub] = info, index + 1
+		end
+
+		LinkInfoEx, Pong = Pong, LinkInfoEx
+	end
+
+	return n
+end
+
+local function GroupLinkInfo (info, tag_db, tag, alist)
+	local n, lg = 0, info and common.GetLinkGrouping(tag)
+
+	for i, sub in tag_db:Sublinks(tag, "no_instances") do
+		local li = InfoEntry(i)
+		local aindex, _, is_source, text, about = alist and alist[sub], SublinkInfo(info, tag_db, tag, sub)
+
+		li.aindex, li.is_source, li.sub, li.text, li.about, li.want_link, n = aindex, is_source, sub, text, about, true, i
+	end
+
+	return PutItemsInPlace(lg, n)
+end
+
+local function RowItems (link, stext, about)
+	if link then
+		return link, stext, about
+	else
+		return stext, about
+	end
+end
+
 --
 local function AddPrimaryBox (group, tag_db, tag, object)
 	local info, bgroup = common.AttachLinkInfo(object, nil), display.newGroup()
@@ -319,23 +411,24 @@ local function AddPrimaryBox (group, tag_db, tag, object)
 	--
 	local alist = AddAttachments(group, object, info, tag_db, tag)
 
-	for _, sub in tag_db:Sublinks(tag, "no_instances") do
-		local ai, _, is_source, text = alist and alist[sub], SublinkInfo(info, tag_db, tag, sub)
-		local cur = box_layout.ChooseLeftOrRightGroup(bgroup, is_source)
-		local link, stext = Link(cur), display.newText(cur, text or sub, 0, 0, native.systemFont, 12)
+	for i = 1, GroupLinkInfo(info, tag_db, tag, alist) do
+		local li = LinkInfoEx[i]
+		local cur = box_layout.ChooseLeftOrRightGroup(bgroup, li.is_source)
+		local link, stext = li.want_link and Link(cur), display.newText(cur, li.text or li.sub, 0, 0, native.systemFont, 12)
 
-		--
-		local lo, ro = box_layout.Arrange(is_source, 5, link, stext)
-
-		if text then
+		if li.about then
 			-- hook up some touch listener, change appearance
+			-- ^^ Maybe add a question mark-type thing
 		end
 
 		--
-		if ai then
-			connections.LinkAttachment(link, alist[ai])
-		else
-			IntegrateLink(link, object, sub, is_source)
+		local lo, ro = box_layout.Arrange(li.is_source, 5, RowItems(link, stext, li.about))
+
+		--
+		if li.aindex then
+			connections.LinkAttachment(link, alist[li.aindex])
+		elseif link then
+			IntegrateLink(link, object, li.sub, li.is_source)
 		end
 
 		--
@@ -446,7 +539,7 @@ end
 
 --- DOCMAYBE
 function M.Unload ()
-	Group, ItemGroup = nil
+	Group, ItemGroup, LinkInfoEx, Order, Pong = nil
 
 	box_layout.Unload()
 	cells.Unload()
