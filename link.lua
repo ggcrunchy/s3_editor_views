@@ -33,19 +33,15 @@
 local ipairs = ipairs
 local max = math.max
 local sort = table.sort
-local random = math.random
-local tonumber = tonumber
 local type = type
 
 -- Modules --
-local array_index = require("tektite_core.array.index")
+local attachments = require("s3_editor_views.link_imp.attachments")
 local box_layout = require("s3_editor_views.link_imp.box_layout")
-local button = require("corona_ui.widgets.button")
 local cells = require("s3_editor_views.link_imp.cells")
 local common = require("s3_editor.Common")
 local common_ui = require("s3_editor.CommonUI")
 local connections = require("s3_editor_views.link_imp.connections")
-local editable = require("corona_ui.patterns.editable")
 local help = require("s3_editor.Help")
 local layout = require("corona_ui.utils.layout")
 local objects = require("s3_editor_views.link_imp.objects")
@@ -53,6 +49,7 @@ local touch = require("corona_ui.utils.touch")
 
 -- Corona globals --
 local display = display
+local easing = easing
 local native = native
 local transition = transition
 
@@ -83,12 +80,19 @@ local FadeParams = {}
 local function EmphasizeLinks (item, how, link, source_to_target, not_owner)
 	local r, g, b = 1
 
+	if item.m_glowing then
+		transition.cancel(item.m_glowing)
+
+		item.m_glowing = nil
+	end
+
 	if how == "began" then
 		if not not_owner then
 			r = 0
 		elseif not source_to_target then
 			r = .25
 		elseif common.GetLinks():CanLink(link.m_obj, item.m_obj, link.m_sub, item.m_sub) then
+			FadeParams.iterations, FadeParams.time, FadeParams.transition = 0, 1250, easing.continuousLoop
 			r, g, b = 1, 0, 1
 		else
 			r, g, b = .2, .3, .2
@@ -97,7 +101,10 @@ local function EmphasizeLinks (item, how, link, source_to_target, not_owner)
 
 	FadeParams.r, FadeParams.g, FadeParams.b = r, g or r, b or r
 
-	transition.to(item.fill, FadeParams)
+	local handle = transition.to(item.fill, FadeParams)
+
+	item.m_glowing = FadeParams.transition and handle or nil
+	FadeParams.iterations, FadeParams.time, FadeParams.transition = nil
 end
 
 local function SortByID (box1, box2)
@@ -225,149 +232,6 @@ local function FindFreeSpot (x, how)
 	return sx, sy
 end
 
-local function Add (button)
-	button.parent[1]:m_add()
-end
-
-local function RemoveRange (list, last, n)
-	for _ = 1, n do
-		list:remove(last)
-
-		last = last - 1
-	end
-end
-
-local function Shift (items, shift, a, b, is_array)
-	local delta = shift > 0 and 1 or -1
-
-	for i = a, b, delta do
-		local instance = is_array and items[i].m_instance
-
-		if instance then
-			common.SetLabel(instance, common.GetLabel(instance) + delta)
-		end
-
-		items[i].y = items[i + shift].y
-	end
-end
-
-local function RemoveRow (list, row, n, is_array)
-	local last = row * n
-
-	Shift(list, -n, list.numChildren, last + 1, is_array)
-	RemoveRange(list, last, n)
-end
-
-local Delete = touch.TouchHelperFunc(function(_, button)
-	local fixed = button.parent
-	local agroup = fixed.parent
-	local row, items, links = button.m_row, agroup.items, agroup.links
-	local nfixed, nlinks = fixed.numChildren, links.numChildren
-	local neach = items.numChildren / nlinks -- only one link per row, but maybe more than one item
-	local base = (row - 1) * neach
-
-	for i = 1, neach do
-		local instance = items[base + i].m_instance
-
-		if instance then
-			common.RemoveInstance(button.m_object, instance)
-		end
-	end
-
-	RemoveRow(items, row, neach, items.m_is_array)
-	RemoveRow(links, row, 1)
-	RemoveRange(fixed, nfixed, nfixed / nlinks) -- as above, in case more than one fixed object per row
-end)
-
-local function GetFromItemInfo (items, fi, ti, n, is_array)
-	for i = 0, n - 1 do
-		local from_instance = is_array and items[ti - i].m_instance
-
-		if from_instance then
-			items[fi - i].m_old_index = common.GetLabel(from_instance)
-		end
-
-		items[fi - i].m_y = items[ti - i].y
-	end
-end
-
-local function SetToItemInfo (items, _, ti, n)
-	for i = 0, n - 1 do
-		local item = items[ti - i]
-
-		if item.m_old_index then
-			common.SetLabel(item.m_instance, item.m_old_index)
-		end
-
-		item.y, item.m_old_index, item.m_y = item.m_y
-	end
-end
-
-local function AuxMoveRow (items, stash, fi, ti, n, is_array)
-	GetFromItemInfo(items, fi, ti, n, is_array)
-
-	local tpos = ti - n + 1
-
-	if fi < ti then
-		Shift(items, -n, ti, fi + 1, is_array)
-	else
-		Shift(items, n, tpos, fi - n, is_array)
-	end
-
-	for i = 0, n - 1 do -- to avoid having to reason about how insert() works with elements already in the group,
-						-- temporarily put them somewhere else, in reverse order...
-		stash:insert(items[fi - i])
-	end
-
-	for i = 1, n do -- ...then stitch them back in where they belong
-		items:insert(tpos, stash[stash.numChildren - n + i])
-	end
-
-	SetToItemInfo(items, fi, ti, n)
-end
-
-local function MoveRow (items, links, from, to)
-	if from ~= to then
-		local n = items.numChildren / links.numChildren -- only one link per row, but maybe more than one item
-		local fi, ti = from * n, to * n
-
-		AuxMoveRow(items, links, fi, ti, n, items.m_is_array)
-		AuxMoveRow(links, items, from, to, 1)
-	end
-end
-
-local function FindRow (drag_box, box, links)
-	local row = array_index.FitToSlot(drag_box.y, box.y + box.height / 2, drag_box.height)
-
-	return (row >= 1 and row <= links.numChildren) and row
-end
-
-local Move = touch.TouchHelperFunc(function(event, ibox)
-	local items = ibox.parent
-	local box = items.parent[1]
-	local drag_box = box.m_drag
-
-	drag_box.x, drag_box.y = ibox.x, ibox.y
-	drag_box.isVisible = true
-
-	ibox.m_dragy, ibox.m_from = ibox.y - event.y, FindRow(drag_box, box, items.parent.links)
-end, function(event, ibox)
-	local items = ibox.parent
-
-	items.parent[1].m_drag.y = ibox.m_dragy + event.y
-end, function(_, ibox)
-	local items = ibox.parent
-	local box = items.parent[1]
-	local drag_box, links = box.m_drag, items.parent.links
-	local row = FindRow(drag_box, box, items, links)
-
-	if row then
-		MoveRow(items, links, ibox.m_from, row)
-	end
-
-	drag_box.isVisible = false
-end)
-
 local function AddBox (group, w, h)
 	local box = cells.NewBox(group, w, h, 12)
 
@@ -381,13 +245,9 @@ local function AddBox (group, w, h)
 	box.strokeWidth = 2
 
 	box.m_id, BoxID = BoxID, BoxID + 1
+	box.m_node_list_index = NodeListIndex
 
 	return box
-end
-
---
-local function IndexFromInstance (instance)
-	return tonumber(common.GetLabel(instance))
 end
 
 local function Link (group)
@@ -396,146 +256,6 @@ local function Link (group)
 	link.strokeWidth = 1
 
 	return link
-end
-
-local function AssembleArray (tag_db, tag, sub, instances)
-	local arr
-
-	for i = 1, #(instances or "") do
-		local instance = instances[i]
-
-		if tag_db:GetTemplate(tag, instance) == sub then
-			arr = arr or {}
-			arr[IndexFromInstance(instance)] = instance
-		end
-	end
-
-	return arr
-end
-
-local EditOpts = {
-	font = "PeacerfulDay", size = layout.ResolveY("3%"),
-
-	get_editable_text = function(editable)
-		return common.GetLabel(editable.m_instance)
-	end,
-
-	set_editable_text = function(editable, text)
-		common.SetLabel(editable.m_instance, text)
-
-		editable:SetStringText(text)
-	end
-}
-
-local function AttachmentBox (group, object, tag_db, tag, sub, is_source, is_set)
-	local agroup = display.newGroup()
-
-	group:insert(agroup)
-
-	local add, primary_link = button.Button(agroup, "4.25%", "4%", Add, "+"), Link(agroup)
-	local lo, ro = box_layout.Arrange(not is_source, 10, add, primary_link)
-	local box = AddBox(agroup, box_layout.GetLineWidth(lo, ro) + 25, add.height + 15)
-
-	primary_link.x, box.primary = add.x - primary_link.x, primary_link
-
-	--
-	agroup.items, agroup.fixed, agroup.links = display.newGroup(), display.newGroup(), display.newGroup()
-
-	agroup:insert(agroup.items)
-	agroup:insert(agroup.fixed)
-	agroup:insert(agroup.links)
-
-	agroup.items.m_is_array = not is_set
-	box.m_is_source, box.m_node_list_index = is_source, NodeListIndex
-
-	function box:m_add (instance)
-		local link = Link(agroup.links)
-		local ibox = display.newRect(agroup.items, self.x, 0, self.width + (is_set and 15 or 0), is_set and 30 or 15)
-		local below = self.y + self.height / 2
-
-		ibox:addEventListener("touch", Move)
-		ibox:setFillColor(.4)
-		ibox:setStrokeColor(random(), random(), random())
-
-		ibox.strokeWidth = 2
-
-		local n = agroup.links.numChildren
-
-		if not instance then
-			instance = tag_db:Instantiate(tag, sub)
-
-			common.AddInstance(object, instance)
-
-			if not is_set then
-				common.SetLabel(instance, n)
-			end
-		end
-
-		if not self.m_drag then
-			self.m_drag = display.newRect(agroup, 0, 0, ibox.width, ibox.height)
-
-			self.m_drag:setFillColor(0, 0)
-			self.m_drag:setStrokeColor(0, .9, 0)
-
-			self.m_drag:toFront()
-
-			self.m_drag.strokeWidth = 2
-			self.m_drag.isVisible = false
-		end
-
-		ibox.y = below + (n - .5) * ibox.height
-		link.y = ibox.y
-
-		local hw = self.width / 2
-
-		link.x = self.x + (is_source and hw or -hw)
-
-		local delete = display.newCircle(agroup.fixed, 0, ibox.y, 7)
-
-		delete:addEventListener("touch", Delete)
-		delete:setFillColor(.9, 0, 0)
-		delete:setStrokeColor(.3, 0, 0)
-
-		delete.alpha = .5
-		delete.strokeWidth = 2
-		delete.x = self.x + (is_source and -hw or hw)
-
-		delete.m_object, delete.m_row = object, n
-
-		if is_set then
-			local text = editable.Editable_XY(agroup.items, ibox.x, ibox.y, EditOpts)
-
-			text.m_instance = instance
-
-			text:SetText(common.GetLabel(instance) or "default")
-		else
-			ibox.m_instance = instance
-
-			display.newText(agroup.fixed, ("#%i"):format(n), ibox.x, ibox.y, native.systemFontBold, 10)
-		end
-
-		IntegrateLink(link, object, instance, is_source, self.m_node_list_index)
-	end
-
-	local instances = common.GetInstances(object)
-
-	if is_set then
-		for i = 1, #(instances or "") do
-			local instance = instances[i]
-
-			if tag_db:GetTemplate(tag, instance) == sub then
-				box:m_add(instance)
-			end
-		end
-	else
-		local arr = AssembleArray(tag_db, tag, sub, instances)
-
-		for i = 1, #(arr or "") do
-			box:m_add(arr[i])
-		end
-	end
-
-	return box
 end
 
 local function SublinkInfo (info, tag_db, tag, sub)
@@ -555,18 +275,18 @@ end
 
 --
 local function AddAttachments (group, object, info, tag_db, tag)
-	local attachments
+	local list
 
 	for _, sub in tag_db:Sublinks(tag, "templates") do
 		local iinfo, is_source = SublinkInfo(info, tag_db, tag, sub)
 		local is_set = iinfo and iinfo.is_set
 
-		attachments = attachments or {}
-		attachments[#attachments + 1] = AttachmentBox(group, object, tag_db, tag, sub, is_source, is_set)
-		attachments[sub] = #attachments
+		list = list or {}
+		list[#list + 1] = attachments.Box(group, object, tag_db, tag, sub, is_source, is_set)
+		list[sub] = #list
 	end
 
-	return attachments
+	return list
 end
 
 local function AddNameText (group, object)
@@ -578,13 +298,13 @@ local function AddNameText (group, object)
 	return ntext
 end
 
-local function AssignPositions (primary, attachments)
+local function AssignPositions (primary, alist)
 	local x, y = FindFreeSpot()
 
 	cells.PutBoxAt(primary, x, y)
 
-	for i = 1, #(attachments or "") do
-		local abox = attachments[i]
+	for i = 1, #(alist or "") do
+		local abox = alist[i]
 
 		cells.PutBoxAt(abox, FindFreeSpot(x, abox.m_is_source and "right_of" or "left_of"))	
 	end
@@ -597,10 +317,10 @@ local function AddPrimaryBox (group, tag_db, tag, object)
 	group:insert(bgroup)
 
 	--
-	local attachments = AddAttachments(group, object, info, tag_db, tag)
+	local alist = AddAttachments(group, object, info, tag_db, tag)
 
 	for _, sub in tag_db:Sublinks(tag, "no_instances") do
-		local ai, _, is_source, text = attachments and attachments[sub], SublinkInfo(info, tag_db, tag, sub)
+		local ai, _, is_source, text = alist and alist[sub], SublinkInfo(info, tag_db, tag, sub)
 		local cur = box_layout.ChooseLeftOrRightGroup(bgroup, is_source)
 		local link, stext = Link(cur), display.newText(cur, text or sub, 0, 0, native.systemFont, 12)
 
@@ -613,7 +333,7 @@ local function AddPrimaryBox (group, tag_db, tag, object)
 
 		--
 		if ai then
-			connections.LinkAttachment(link, attachments[ai])
+			connections.LinkAttachment(link, alist[ai])
 		else
 			IntegrateLink(link, object, sub, is_source)
 		end
@@ -629,13 +349,13 @@ local function AddPrimaryBox (group, tag_db, tag, object)
 
 	connections.AddNodeList(NodeListIndex)
 
-	box.m_attachments, box.m_node_list_index = attachments, NodeListIndex
+	box.m_attachments = alist
 
 	NodeListIndex = NodeListIndex + 1
 
 	ntext.y = box_layout.GetY1(box) + 10
 
-	AssignPositions(box, attachments)
+	AssignPositions(box, alist)
 
 	return box, ntext
 end
@@ -648,7 +368,7 @@ end
 
 --
 local function RemoveAttachment (tag_db, sbox, tag)
-	local links = sbox.parent.links
+	local links = attachments.GetLinksGroup(sbox)
 
 	for k = 1, links.numChildren do
 		tag = tag or tag_db:GetTag(links[k].m_obj)
@@ -733,6 +453,9 @@ function M.Unload ()
 	connections.Unload()
 	objects.Unload()
 end
+
+-- This seems the most straightforward way to get these to the attachments module.
+attachments.AddUtils{ add_box = AddBox, integrate_link = IntegrateLink, link = Link }
 
 -- Export the module.
 return M

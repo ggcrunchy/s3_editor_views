@@ -66,15 +66,6 @@ function M.AddLine (group, left_object, right_object, spacing, lowest)
 end
 
 --- DOCME
-function M.Append (box, instance)
-	-- row with these elements
-		-- delete
-		-- "key:" (possible, in sets), just a label
-		-- text field (sets, to assign key) or number (arrays, to mark position)
-		-- link
-end
-
---- DOCME
 function M.Arrange (is_source, offset, a, b, c, d, e, f)
 	local method
 
@@ -254,39 +245,6 @@ end
 --- DOCME
 function M.Load ()
 	LeftAndRightGroup, List1, List2 = {}, {}, {}
-end
-
---- DOCME
-function M.RemoveRow (box, row)
-	-- for each object with row = row
-		-- find minimum y
-		-- remove element
-	-- remove links[row]
-	-- more rows?
-		-- dy = min y - prev min y
-	-- else
-		-- dy = difference to bottom margin
-	-- for each remaining row
-		-- move all elements up by dy
-		-- decrement row
-		-- same for links[row], but move back slot
-	-- shrink heights by dy
-	-- ^^^ some similar stuff for Append
-	-- in arrays, enable or disable arrows as necessary
-		-- for that matter, leave these in place and only remove last row, avoiding need to update index
-end
-
---- DOCME
-function M.SwapRows (box, row1, row2)
-	-- very basic if rows are fixed size, otherwise need to pull up below max(row1, row2) and 
-		-- pull down beyond min(row1, row2)...
-	-- fixed size sounding pretty good, actually... just need to account for numbers? (not sure how text field looks)
-	-- in first case just swap positions (plus row values) and entries in links
-		-- leave arrows in place (enable, disable etc.)
-	-- aside from link could maybe just edit the contents of each element, rather than moving them
-	-- loop must take some care, since ranges could be adjacent
-		-- but will always be same number of elements for format (array or set)? (just make arrows invisible on top / bottom row)
-		-- ^^^ If so could use these counts to find position instead
 end
 
 --- DOCME
