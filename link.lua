@@ -271,7 +271,7 @@ local function SublinkInfo (info, tag_db, tag, sub)
 			is_source = iinfo.is_source
 		end
 
-		return iinfo, is_source, iinfo.friendly_name, iinfo.about
+		return iinfo, is_source, iinfo.friendly_name, iinfo.about, iinfo.font, iinfo.size, iinfo.r, iinfo.g, iinfo.b
 	else
 		return nil, is_source, itype == "string" and iinfo or nil
 	end
@@ -347,7 +347,7 @@ local function PutItemsInPlace (lg, n)
 				end
 			else
 				li, n, is_source = InfoEntry(n + 1), n + 1
-				li.aindex, li.sub, li.wants_link = nil
+				li.aindex, li.sub, li.wants_link, li.font, li.size, li.r, li.g, li.b = nil
 
 				if type(ginfo) == "table" then
 					if ginfo.is_source ~= nil then
@@ -355,6 +355,7 @@ local function PutItemsInPlace (lg, n)
 					end
 
 					li.text, li.is_source = ginfo.text, is_source ~= nil and is_source -- false or is_source
+					li.font, li.size, li.r, li.g, li.b = ginfo.font, ginfo.size, ginfo.r, ginfo.g, ginfo.b
 				else
 					li.text, li.is_source = ginfo, false
 				end
@@ -381,9 +382,11 @@ local function GroupLinkInfo (info, tag_db, tag, alist)
 
 	for i, sub in tag_db:Sublinks(tag, "no_instances") do
 		local li = InfoEntry(i)
-		local aindex, _, is_source, text, about = alist and alist[sub], SublinkInfo(info, tag_db, tag, sub)
+		local aindex, _, is_source, text, about, font, size, r, g, b = alist and alist[sub], SublinkInfo(info, tag_db, tag, sub)
 
-		li.aindex, li.is_source, li.sub, li.text, li.about, li.want_link, n = aindex, is_source, sub, text, about, true, i
+		li.aindex, li.is_source, li.sub, li.want_link = aindex, is_source, sub, true
+		li.text, li.font, li.size, li.r, li.g, li.b = text, font, size, r, g, b
+		li.about, n = about, i
 	end
 
 	return PutItemsInPlace(lg, n)
@@ -409,7 +412,13 @@ local function AddPrimaryBox (group, tag_db, tag, object)
 	for i = 1, GroupLinkInfo(info, tag_db, tag, alist) do
 		local li = LinkInfoEx[i]
 		local cur = box_layout.ChooseLeftOrRightGroup(bgroup, li.is_source)
-		local link, stext = li.want_link and Link(cur), display.newText(cur, li.text or li.sub, 0, 0, native.systemFont, 12)
+		local font, size = li.font or native.systemFont, li.size or 12
+
+		font = font == "bold" and native.systemFontBold or font
+
+		local link, stext = li.want_link and Link(cur), display.newText(cur, li.text or li.sub, 0, 0, font, size)
+
+		stext:setFillColor(li.r or 1, li.g or 1, li.b or 1)
 
 		if li.about then
 			-- hook up some touch listener, change appearance

@@ -46,6 +46,27 @@ local M = {}
 --
 --
 
+local function FindBottom (group, how)
+	local y2, n, bobj = 0, group.numChildren
+	local line = n > 0 and group[n].m_line
+
+	for i = n, 1, -1 do
+		local object = group[i]
+
+		if object.m_line ~= line then
+			break
+		else
+			local oy = object.y + object.height / 2
+
+			if oy > y2 then
+				y2, bobj = oy, object
+			end
+		end
+	end
+
+	return how == "want_object" and bobj or y2
+end
+
 --- DOCME
 function M.AddLine (group, left_object, right_object, spacing, lowest)
 	local w, line, n = _GetLineWidth_(left_object, right_object), (group.m_line or 0) + 1, group.numChildren
@@ -62,14 +83,18 @@ function M.AddLine (group, left_object, right_object, spacing, lowest)
 		end
 	end
 
-	group.m_last_count, group.m_line, group.m_prev = n, line, lowest
+	group.m_last_count, group.m_line = n, line
+	group.m_prev = lowest or FindBottom(group, "want_object")
 end
 
 --- DOCME
 function M.Arrange (is_source, offset, a, b, c, d, e, f)
 	local method
 
-	if is_source then
+	if not b then
+		offset = offset + a.width / 2
+		a.x = a.x + (is_source and -offset or offset)
+	elseif is_source then
 		method, offset = layout.PutLeftOf, -offset
 	else
 		method = layout.PutRightOf
@@ -157,23 +182,6 @@ end
 --- DOCME
 function M.GetLineWidth (left_object, right_object)
 	return layout.RightOf(right_object) - layout.LeftOf(left_object)
-end
-
-local function FindBottom (group)
-	local y2, n = 0, group.numChildren
-	local line = n > 0 and group[n].m_line
-
-	for i = n, 1, -1 do
-		local object = group[i]
-
-		if object.m_line ~= line then
-			break
-		else
-			y2 = max(y2, object.y + object.height / 2)
-		end
-	end
-
-	return y2
 end
 
 --- DOCME
