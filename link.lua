@@ -37,9 +37,11 @@ local sort = table.sort
 local type = type
 
 -- Modules --
+local args = require("iterator_ops.args")
 local attachments = require("s3_editor_views.link_imp.attachments")
 local box_layout = require("s3_editor_views.link_imp.box_layout")
 local cells = require("s3_editor_views.link_imp.cells")
+local color = require("corona_ui.utils.color")
 local common = require("s3_editor.Common")
 local common_ui = require("s3_editor.CommonUI")
 local connections = require("s3_editor_views.link_imp.connections")
@@ -262,7 +264,25 @@ local function Link (group)
 	return link
 end
 
-local function SublinkInfo (info, tag_db, tag, sub)
+color.RegisterColor("actions", "red")
+color.RegisterColor("events", "blue")
+color.RegisterColor("props", "green")
+
+local function PopulateEntryFromInfo (entry, text, info)
+	if entry then
+		info = info or LinkInfoEx -- LinkInfoEx is an array, so accesses will yield nil
+
+		entry.text = text
+
+		for _, name in args.Args("about", "font", "size", "color", "r", "g", "b") do
+			entry[name] = info[name]
+		end
+	else
+		return info -- N.B. at the moment we care about this when not populating the entry
+	end
+end
+
+local function SublinkInfo (info, tag_db, tag, sub, entry)
 	local iinfo = info and info[sub]
 	local itype, is_source = iinfo and type(iinfo), tag_db:ImplementedBySublink(tag, sub, "event_source")
 
@@ -271,9 +291,9 @@ local function SublinkInfo (info, tag_db, tag, sub)
 			is_source = iinfo.is_source
 		end
 
-		return iinfo, is_source, iinfo.friendly_name, iinfo.about, iinfo.font, iinfo.size, iinfo.r, iinfo.g, iinfo.b
+		return is_source, PopulateEntryFromInfo(entry, iinfo.friendly_name, iinfo)
 	else
-		return nil, is_source, itype == "string" and iinfo or nil
+		return is_source, PopulateEntryFromInfo(entry, itype == "string" and iinfo or nil)
 	end
 end
 
@@ -282,7 +302,7 @@ local function AddAttachments (group, object, info, tag_db, tag)
 	local list
 
 	for _, sub in tag_db:Sublinks(tag, "templates") do
-		local iinfo, is_source = SublinkInfo(info, tag_db, tag, sub)
+		local is_source, iinfo = SublinkInfo(info, tag_db, tag, sub)
 		local is_set = iinfo and iinfo.is_set
 
 		list = list or {}
@@ -314,8 +334,6 @@ local function AssignPositions (primary, alist)
 	end
 end
 
-local Order
-
 local function InfoEntry (index)
 	local entry = LinkInfoEx[index]
 
@@ -327,13 +345,16 @@ local function InfoEntry (index)
 	return entry
 end
 
+local Indices, Order
 
 local function PutItemsInPlace (lg, n)
 	if lg then
-		Order = Order or {}
+		Indices, Order = Indices or {}, Order or {}
 
 		for i = 1, n do
-			Order[LinkInfoEx[i].sub], LinkInfoEx[i] = LinkInfoEx[i], false
+			local li = LinkInfoEx[i]
+
+			Indices[i], Order[li.sub], LinkInfoEx[i] = li.sub, li, false
 		end
 
 		local li, is_source
@@ -347,18 +368,23 @@ local function PutItemsInPlace (lg, n)
 				end
 			else
 				li, n, is_source = InfoEntry(n + 1), n + 1
-				li.aindex, li.sub, li.wants_link, li.font, li.size, li.r, li.g, li.b = nil
+				Indices[n] = false -- ensure empty
+
+				for k in pairs(li) do
+					li[k] = nil
+				end
 
 				if type(ginfo) == "table" then
 					if ginfo.is_source ~= nil then
 						is_source = ginfo.is_source
 					end
 
-					li.text, li.is_source = ginfo.text, is_source ~= nil and is_source -- false or is_source
-					li.font, li.size, li.r, li.g, li.b = ginfo.font, ginfo.size, ginfo.r, ginfo.g, ginfo.b
+					PopulateEntryFromInfo(li, ginfo.text, ginfo)
 				else
-					li.text, li.is_source = ginfo, false
+					PopulateEntryFromInfo(li, ginfo)
 				end
+
+				li.is_source = is_source ~= nil and is_source -- false or is_source
 			end
 
 			LinkInfoEx[i] = li
@@ -366,12 +392,20 @@ local function PutItemsInPlace (lg, n)
 
 		-- Stitch any outstanding entries back in at the end in whatever order pairs() gives
 		-- us. These will overwrite any new entries from n + 1 to n + X, so they will in fact
-		-- only be present earlier in the list where they were added.
-		local index = #lg
+		-- only be present earlier in the list where they were added. For convenience, any
+		-- such entries are added according to their original relative order. 
+		local ii, index = 1, #lg
 
-		for sub, info in pairs(Order) do
-			LinkInfoEx[index + 1], index, Order[sub] = info, index + 1
-		end
+		repeat
+			local sub = Indices[ii]
+			local info = Order[sub] -- nil if removed or sub is falsy
+
+			if info then
+				LinkInfoEx[index + 1], index, Order[sub] = info, index + 1
+			end
+
+			ii = ii + 1
+		until not sub
 	end
 
 	return n
@@ -382,11 +416,9 @@ local function GroupLinkInfo (info, tag_db, tag, alist)
 
 	for i, sub in tag_db:Sublinks(tag, "no_instances") do
 		local li = InfoEntry(i)
-		local aindex, _, is_source, text, about, font, size, r, g, b = alist and alist[sub], SublinkInfo(info, tag_db, tag, sub)
 
-		li.aindex, li.is_source, li.sub, li.want_link = aindex, is_source, sub, true
-		li.text, li.font, li.size, li.r, li.g, li.b = text, font, size, r, g, b
-		li.about, n = about, i
+		n, li.is_source = i, SublinkInfo(info, tag_db, tag, sub, li)
+		li.aindex, li.sub, li.want_link = alist and alist[sub], sub, true
 	end
 
 	return PutItemsInPlace(lg, n)
@@ -418,7 +450,11 @@ local function AddPrimaryBox (group, tag_db, tag, object)
 
 		local link, stext = li.want_link and Link(cur), display.newText(cur, li.text or li.sub, 0, 0, font, size)
 
-		stext:setFillColor(li.r or 1, li.g or 1, li.b or 1)
+		if li.color then
+			stext:setFillColor(color.GetColor(li.color))
+		elseif li.r or li.g or li.b then
+			stext:setFillColor(li.r or 0, li.g or 0, li.b or 0)
+		end
 
 		if li.about then
 			-- hook up some touch listener, change appearance
@@ -543,7 +579,7 @@ end
 
 --- DOCMAYBE
 function M.Unload ()
-	Group, ItemGroup, LinkInfoEx, Order, Pong = nil
+	Group, Indices, ItemGroup, LinkInfoEx, Order = nil
 
 	box_layout.Unload()
 	cells.Unload()
