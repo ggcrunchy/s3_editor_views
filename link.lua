@@ -314,7 +314,7 @@ local function AssignPositions (primary, alist)
 	end
 end
 
-local Order, Pong
+local Order
 
 local function InfoEntry (index)
 	local entry = LinkInfoEx[index]
@@ -330,52 +330,47 @@ end
 
 local function PutItemsInPlace (lg, n)
 	if lg then
-		Order, Pong = Order or {}, Pong or {}
+		Order = Order or {}
 
 		for i = 1, n do
-			Order.sub, lg[i] = lg[i], false
+			Order[LinkInfoEx[i].sub], LinkInfoEx[i] = LinkInfoEx[i], false
 		end
 
 		local li, is_source
 
 		for i, ginfo in ipairs(lg) do
-			if Pong[i] then -- if usable, recycle before overwriting
-				LinkInfoEx[#LinkInfoEx + 1] = Pong[i]
-			end
-
 			if Order[ginfo] then
 				li, Order[ginfo] = Order[ginfo]
 
-				if is_source ~= nil then
+				if is_source ~= nil then -- otherwise use own value
 					li.is_source = is_source
 				end
 			else
-				li, n = LinkInfoEx[n + 1], n + 1
+				li, n, is_source = InfoEntry(n + 1), n + 1
 				li.aindex, li.sub, li.wants_link = nil
 
 				if type(ginfo) == "table" then
 					if ginfo.is_source ~= nil then
 						is_source = ginfo.is_source
-					else
-						is_source = nil
 					end
 
-					li.text, li.is_source = is_source, ginfo.text
+					li.text, li.is_source = ginfo.text, is_source ~= nil and is_source -- false or is_source
 				else
-					li.text, li.is_source = ginfo
+					li.text, li.is_source = ginfo, false
 				end
 			end
 
-			Pong[i] = li
+			LinkInfoEx[i] = li
 		end
 
-		local index = #lg + 1
+		-- Stitch any outstanding entries back in at the end in whatever order pairs() gives
+		-- us. These will overwrite any new entries from n + 1 to n + X, so they will in fact
+		-- only be present earlier in the list where they were added.
+		local index = #lg
 
 		for sub, info in pairs(Order) do
-			Pong[index], index, Order[sub] = info, index + 1
+			LinkInfoEx[index + 1], index, Order[sub] = info, index + 1
 		end
-
-		LinkInfoEx, Pong = Pong, LinkInfoEx
 	end
 
 	return n
