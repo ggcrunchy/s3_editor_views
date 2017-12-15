@@ -267,6 +267,7 @@ end
 color.RegisterColor("actions", "red")
 color.RegisterColor("events", "blue")
 color.RegisterColor("props", "green")
+color.RegisterColor("unary_action", { r = .2, g = .7, b = .2 })
 
 local function PopulateEntryFromInfo (entry, text, info)
 	if entry then
