@@ -63,6 +63,7 @@ function M.Load (view)
 	Grid = grid.NewGrid()
 
 	Grid:addEventListener("cell", Cell)
+	Grid:TouchCell(1, 1)
 
 	--
 	local choices = { "Start" }--, "Events" } -- todo: other player stuff, not events
