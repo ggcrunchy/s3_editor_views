@@ -300,17 +300,35 @@ end
 
 --
 local function AddAttachments (group, object, info, tag_db, tag)
-	local list
+	local list, groups
 
 	for _, sub in tag_db:Sublinks(tag, "templates") do
-		local is_source, iinfo = SublinkInfo(info, tag_db, tag, sub)
-
 		list = list or {}
-		list[#list + 1] = attachments.Box(group, object, tag_db, tag, sub, is_source, iinfo and iinfo.set_style)
-		list[sub] = #list
+
+		local is_source, iinfo = SublinkInfo(info, tag_db, tag, sub)
+		local gname, box = iinfo and iinfo.group
+
+		if gname then
+			groups = groups or {}
+
+			local ginfo = groups[gname]
+
+			if not ginfo then
+				ginfo = {}
+				box, sub = attachments.Box(group, object, tag_db, tag, ginfo, is_source, "mixed"), gname
+			end
+
+			groups[gname], ginfo[sub] = ginfo, iinfo.friendly_name or sub
+		else
+			box = attachments.Box(group, object, tag_db, tag, sub, is_source, iinfo and iinfo.is_set)
+		end
+
+		if box then
+			list[#list + 1] = box
+			list[sub] = #list
+		end
 	end
--- TODO: ^^^ stitch in mixed links... should respect position
-	-- iinfo.set_name? (then style == "mixed" and sub == set)
+
 	return list
 end
 

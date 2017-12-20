@@ -34,6 +34,7 @@ local button = require("corona_ui.widgets.button")
 local editable = require("corona_ui.patterns.editable")
 local common = require("s3_editor.Common")
 local layout = require("corona_ui.utils.layout")
+local table_view_patterns = require("corona_ui.patterns.table_view")
 local touch = require("corona_ui.utils.touch")
 
 -- Corona globals --
@@ -239,7 +240,10 @@ function M.Box (group, object, tag_db, tag, sub, is_source, set_style)
 	group:insert(agroup)
 
 	if set_style == "mixed" then
-		choice = nil -- TODO: listbox?
+		choice = nil
+--[[= table_view_patterns.Listbox(Group, {
+width = "30%", height = list.height, get_text = GetText, text_rect_height = "6%", text_size = "3.25%", use_raw_data = true
+		})]]
 	end
 
 	local add, primary_link = button.Button(agroup, "4.25%", "4%", Add, "+"), Link(agroup)
@@ -275,7 +279,7 @@ function M.Box (group, object, tag_db, tag, sub, is_source, set_style)
 			if set_style ~= "mixed" then
 				instance = tag_db:Instantiate(tag, sub)
 			else
-				-- TODO!
+				instance = tag_db:Instantiate(tag, choice:GetSelectionData())
 			end
 
 			common.AddInstance(object, instance)
@@ -320,7 +324,8 @@ function M.Box (group, object, tag_db, tag, sub, is_source, set_style)
 			local x = ibox.x
 
 			if set_style == "mixed" then
-				-- add some text, e.g. "NUM: " ... (sub has info?)
+				-- add some text
+				-- friendly name = sub[tag_db:GetTemplate(tag, instance)]
 			end
 
 			local text = editable.Editable_XY(agroup.items, x, ibox.y, EditOpts)
@@ -348,8 +353,8 @@ function M.Box (group, object, tag_db, tag, sub, is_source, set_style)
 				if template == sub then
 					box:m_add(instance)
 				end
-			else
-				-- TODO: lookup in sub?
+			elseif sub[template] then
+				box:m_add(instance)
 			end
 		end
 	else
