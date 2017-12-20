@@ -233,10 +233,14 @@ local EditOpts = {
 }
 
 --- DOCME
-function M.Box (group, object, tag_db, tag, sub, is_source, is_set)
-	local agroup = display.newGroup()
+function M.Box (group, object, tag_db, tag, sub, is_source, set_style)
+	local agroup, choice = display.newGroup()
 
 	group:insert(agroup)
+
+	if set_style == "mixed" then
+		choice = nil -- TODO: listbox?
+	end
 
 	local add, primary_link = button.Button(agroup, "4.25%", "4%", Add, "+"), Link(agroup)
 	local lo, ro = box_layout.Arrange(not is_source, 10, add, primary_link)
@@ -251,12 +255,12 @@ function M.Box (group, object, tag_db, tag, sub, is_source, is_set)
 	agroup:insert(agroup.fixed)
 	agroup:insert(agroup.links)
 
-	agroup.items.m_is_array = not is_set
+	agroup.items.m_is_array = not set_style
 	box.m_is_source = is_source
 
 	function box:m_add (instance)
 		local link = Link(agroup.links)
-		local ibox = display.newRect(agroup.items, self.x, 0, self.width + (is_set and 15 or 0), is_set and 30 or 15)
+		local ibox = display.newRect(agroup.items, self.x, 0, self.width + (set_style and 15 or 0), set_style and 30 or 15)
 		local below = self.y + self.height / 2
 
 		ibox:addEventListener("touch", Move)
@@ -268,11 +272,15 @@ function M.Box (group, object, tag_db, tag, sub, is_source, is_set)
 		local n = agroup.links.numChildren
 
 		if not instance then
-			instance = tag_db:Instantiate(tag, sub)
+			if set_style ~= "mixed" then
+				instance = tag_db:Instantiate(tag, sub)
+			else
+				-- TODO!
+			end
 
 			common.AddInstance(object, instance)
 
-			if not is_set then
+			if not set_style then
 				common.SetLabel(instance, n)
 			end
 		end
@@ -308,8 +316,14 @@ function M.Box (group, object, tag_db, tag, sub, is_source, is_set)
 
 		delete.m_object, delete.m_row = object, n
 
-		if is_set then
-			local text = editable.Editable_XY(agroup.items, ibox.x, ibox.y, EditOpts)
+		if set_style then
+			local x = ibox.x
+
+			if set_style == "mixed" then
+				-- add some text, e.g. "NUM: " ... (sub has info?)
+			end
+
+			local text = editable.Editable_XY(agroup.items, x, ibox.y, EditOpts)
 
 			text.m_instance = instance
 
@@ -325,12 +339,17 @@ function M.Box (group, object, tag_db, tag, sub, is_source, is_set)
 
 	local instances = common.GetInstances(object)
 
-	if is_set then
+	if set_style then
 		for i = 1, #(instances or "") do
 			local instance = instances[i]
+			local template = tag_db:GetTemplate(tag, instance)
 
-			if tag_db:GetTemplate(tag, instance) == sub then
-				box:m_add(instance)
+			if set_style ~= "mixed" then
+				if template == sub then
+					box:m_add(instance)
+				end
+			else
+				-- TODO: lookup in sub?
 			end
 		end
 	else

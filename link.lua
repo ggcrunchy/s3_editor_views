@@ -304,13 +304,13 @@ local function AddAttachments (group, object, info, tag_db, tag)
 
 	for _, sub in tag_db:Sublinks(tag, "templates") do
 		local is_source, iinfo = SublinkInfo(info, tag_db, tag, sub)
-		local is_set = iinfo and iinfo.is_set
 
 		list = list or {}
-		list[#list + 1] = attachments.Box(group, object, tag_db, tag, sub, is_source, is_set)
+		list[#list + 1] = attachments.Box(group, object, tag_db, tag, sub, is_source, iinfo and iinfo.set_style)
 		list[sub] = #list
 	end
-
+-- TODO: ^^^ stitch in mixed links... should respect position
+	-- iinfo.set_name? (then style == "mixed" and sub == set)
 	return list
 end
 
