@@ -247,31 +247,39 @@ function M.Box (group, object, tag_db, tag, sub, is_source, set_style)
 
 	group:insert(agroup)
 
-	local add, primary_link = button.Button(agroup, "4.25%", "4%", Add, "+"), Link(agroup)
-	local lo, ro = box_layout.Arrange(not is_source, 10, add, primary_link)
+	local add, primary_link, lo, ro = button.Button(agroup, "4.25%", "4%", Add, "+"), Link(agroup)
 
-	if set_style == "mixed" then
+	if set_style ~= "mixed" then
+		lo, ro = box_layout.Arrange(not is_source, 10, primary_link, add)
+	else
 		ListboxOpts = ListboxOpts or {}
 
 		local get_text = sub.get_text or DefGetText
 		local opts, ctext = ListboxOpts[get_text] or {
-			width = "8%", height = "5%", get_text = get_text, text_rect_height = "3%", text_size = "2.25%", use_raw_data = true
+			width = "8%", height = "5%", get_text = get_text, text_rect_height = "3%", text_size = "2.25%"
 		}, sub.choice_text or "Choice:"
 
 		choice, ListboxOpts[get_text] = table_view_patterns.Listbox(agroup, opts), opts
 		ctext = display.newText(agroup, ctext, 0, 0, native.systemFont, 15)
+		choice.y = ctext.y
 
-		layout.PutAbove(choice, primary_link, -5)
-		layout.LeftAlignWith(choice, lo, 5)
-		layout.PutRightOf(choice, ctext, 10)
+		sub.add_choices(choice)
 
-		ctext.y = choice.y
-		-- TODO: ctext might be further right than ro
+		if not choice:GetSelection() then
+			choice:Select(1)
+		end
+
+		if is_source then
+			lo, ro = box_layout.Arrange(false, 7, primary_link, ctext, choice, add)
+		else
+			lo, ro = box_layout.Arrange(false, 7, ctext, choice, add, primary_link)
+		end
 	end
 
-	local box = AddBox(agroup, box_layout.GetLineWidth(lo, ro) + 25, add.height + 15)
+	local w, midx = box_layout.GetLineWidth(lo, ro, "want_middle")
+	local box = AddBox(agroup, w + 25, add.height + 15)
 
-	primary_link.x, box.primary = add.x - primary_link.x, primary_link
+	box.primary, box.x = primary_link, agroup:contentToLocal(midx, 0)
 
 	--
 	agroup.items, agroup.fixed, agroup.links = display.newGroup(), display.newGroup(), display.newGroup()
@@ -285,11 +293,11 @@ function M.Box (group, object, tag_db, tag, sub, is_source, set_style)
 
 	function box:m_add (instance)
 		local link = Link(agroup.links)
-		local n, w = agroup.links.numChildren, self.width + (set_style and 15 or 0)
+		local n, w = agroup.links.numChildren, self.width + (set_style and 25 or 0)
 
 		if not instance then
 			if set_style ~= "mixed" then
-				instance, w = tag_db:Instantiate(tag, sub), w + 50 -- TODO: measure maximum str width
+				instance = tag_db:Instantiate(tag, sub)
 			else
 				instance = tag_db:Instantiate(tag, choice:GetSelectionData())
 			end
@@ -301,7 +309,7 @@ function M.Box (group, object, tag_db, tag, sub, is_source, set_style)
 			end
 		end
 
-		local ibox = display.newRect(agroup.items, self.x, 0, w, set_style and 30 or 15)
+		local ibox = display.newRect(agroup.items, self.x, 0, w, set_style and 35 or 15)
 		local below = self.y + self.height / 2
 
 		ibox:addEventListener("touch", Move)
@@ -324,7 +332,7 @@ function M.Box (group, object, tag_db, tag, sub, is_source, set_style)
 		ibox.y = below + (n - .5) * ibox.height
 		link.y = ibox.y
 
-		local hw = self.width / 2
+		local hw = w / 2
 
 		link.x = self.x + (is_source and hw or -hw)
 
@@ -351,9 +359,7 @@ function M.Box (group, object, tag_db, tag, sub, is_source, set_style)
 				local atext = sub[tag_db:GetTemplate(tag, instance)]
 				local about = display.newText(agroup.items, atext, 0, ibox.y, native.systemFont, 15)
 
-				about.x = text.x - about.width / 2 - 10
-
-				layout.PutRightOf(about, text, 10)
+				layout.PutLeftOf(about, text, -10)
 			end
 		else
 			ibox.m_instance = instance

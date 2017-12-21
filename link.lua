@@ -37,6 +37,7 @@ local sort = table.sort
 local type = type
 
 -- Modules --
+local adaptive = require("tektite_core.table.adaptive")
 local args = require("iterator_ops.args")
 local attachments = require("s3_editor_views.link_imp.attachments")
 local box_layout = require("s3_editor_views.link_imp.box_layout")
@@ -285,7 +286,7 @@ end
 
 local function SublinkInfo (info, tag_db, tag, sub, entry)
 	local iinfo = info and info[sub]
-	local itype, is_source = iinfo and type(iinfo), tag_db:ImplementedBySublink(tag, sub, "event_source")
+	local itype, is_source = iinfo and type(iinfo), tag_db ~= nil and tag_db:ImplementedBySublink(tag, sub, "event_source")
 
 	if itype == "table" then
 		if iinfo.is_source ~= nil then
@@ -303,28 +304,35 @@ local function AddAttachments (group, object, info, tag_db, tag)
 	local list, groups
 
 	for _, sub in tag_db:Sublinks(tag, "templates") do
+		list = list or {}
+
 		local is_source, iinfo = SublinkInfo(info, tag_db, tag, sub)
-		local gname, box = iinfo and iinfo.group
+		local gname = iinfo and iinfo.group
 
 		if gname then
-			groups = groups or {}
+			groups, list[gname] = groups or {}, false
 
-			local ginfo = groups[gname]
-
-			if not ginfo then
-				ginfo = {}
-				box, sub = attachments.Box(group, object, tag_db, tag, ginfo, is_source, "mixed"), gname
-			end
+			local ginfo = groups[gname] or {}
 
 			groups[gname], ginfo[sub] = ginfo, iinfo.friendly_name or sub
 		else
-			box = attachments.Box(group, object, tag_db, tag, sub, is_source, iinfo and iinfo.is_set)
-		end
-
-		if box then
-			list = list or {}
-			list[#list + 1] = box
+			list[#list + 1] = attachments.Box(group, object, tag_db, tag, sub, is_source, iinfo and iinfo.is_set)
 			list[sub] = #list
+		end
+	end
+
+	if groups then
+		for gname, index in pairs(list) do
+			if not index then
+				local ginfo, is_source, iinfo = groups[gname], SublinkInfo(info, nil, nil, gname)
+
+				for _, name in args.Args("add_choices", "choice_text", "get_text") do
+					ginfo[name] = iinfo[name]
+				end
+
+				list[#list + 1] = attachments.Box(group, object, tag_db, tag, ginfo, is_source, "mixed")
+				list[gname] = #list
+			end
 		end
 	end
 
@@ -430,13 +438,24 @@ local function PutItemsInPlace (lg, n)
 end
 
 local function GroupLinkInfo (info, tag_db, tag, alist)
-	local n, lg = 0, info and common.GetLinkGrouping(tag)
+	local n, lg, seen = 0, info and common.GetLinkGrouping(tag)
 
-	for i, sub in tag_db:Sublinks(tag, "no_instances") do
-		local li = InfoEntry(i)
+	for _, sub in tag_db:Sublinks(tag, "no_instances") do
+		local ok, db, _, iinfo = true, tag_db, SublinkInfo(info, tag_db, tag, sub)
 
-		n, li.is_source = i, SublinkInfo(info, tag_db, tag, sub, li)
-		li.aindex, li.sub, li.want_link = alist and alist[sub], sub, true
+		if iinfo and iinfo.group then
+			sub = iinfo.group
+			ok, seen, db = not adaptive.InSet(seen, sub), adaptive.AddToSet(seen, sub)
+		end
+
+		if ok then
+			n = n + 1
+
+			local li = InfoEntry(n)
+
+			li.is_source = SublinkInfo(info, db, tag, sub, li)
+			li.aindex, li.sub, li.want_link = alist and alist[sub], sub, true
+		end
 	end
 
 	return PutItemsInPlace(lg, n)

@@ -180,8 +180,10 @@ function M.CommitLeftAndRightGroups (box, hmargin, vmargin)
 end
 
 --- DOCME
-function M.GetLineWidth (left_object, right_object)
-	return layout.RightOf(right_object) - layout.LeftOf(left_object)
+function M.GetLineWidth (left_object, right_object, how)
+	local left_of, right_of = layout.LeftOf(left_object), layout.RightOf(right_object)
+
+	return right_of - left_of, how == "want_middle" and (left_of + right_of) / 2
 end
 
 --- DOCME
