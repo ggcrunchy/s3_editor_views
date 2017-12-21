@@ -233,21 +233,42 @@ local EditOpts = {
 	end
 }
 
+-- --
+local ListboxOpts
+
+--
+local function DefGetText (text)
+	return text
+end
+
 --- DOCME
 function M.Box (group, object, tag_db, tag, sub, is_source, set_style)
 	local agroup, choice = display.newGroup()
 
 	group:insert(agroup)
 
-	if set_style == "mixed" then
-		choice = nil
---[[= table_view_patterns.Listbox(Group, {
-width = "30%", height = list.height, get_text = GetText, text_rect_height = "6%", text_size = "3.25%", use_raw_data = true
-		})]]
-	end
-
 	local add, primary_link = button.Button(agroup, "4.25%", "4%", Add, "+"), Link(agroup)
 	local lo, ro = box_layout.Arrange(not is_source, 10, add, primary_link)
+
+	if set_style == "mixed" then
+		ListboxOpts = ListboxOpts or {}
+
+		local get_text = sub.get_text or DefGetText
+		local opts, ctext = ListboxOpts[get_text] or {
+			width = "8%", height = "5%", get_text = get_text, text_rect_height = "3%", text_size = "2.25%", use_raw_data = true
+		}, sub.choice_text or "Choice:"
+
+		choice, ListboxOpts[get_text] = table_view_patterns.Listbox(agroup, opts), opts
+		ctext = display.newText(agroup, ctext, 0, 0, native.systemFont, 15)
+
+		layout.PutAbove(choice, primary_link, -5)
+		layout.LeftAlignWith(choice, lo, 5)
+		layout.PutRightOf(choice, ctext, 10)
+
+		ctext.y = choice.y
+		-- TODO: ctext might be further right than ro
+	end
+
 	local box = AddBox(agroup, box_layout.GetLineWidth(lo, ro) + 25, add.height + 15)
 
 	primary_link.x, box.primary = add.x - primary_link.x, primary_link
@@ -264,20 +285,11 @@ width = "30%", height = list.height, get_text = GetText, text_rect_height = "6%"
 
 	function box:m_add (instance)
 		local link = Link(agroup.links)
-		local ibox = display.newRect(agroup.items, self.x, 0, self.width + (set_style and 15 or 0), set_style and 30 or 15)
-		local below = self.y + self.height / 2
-
-		ibox:addEventListener("touch", Move)
-		ibox:setFillColor(.4)
-		ibox:setStrokeColor(random(), random(), random())
-
-		ibox.strokeWidth = 2
-
-		local n = agroup.links.numChildren
+		local n, w = agroup.links.numChildren, self.width + (set_style and 15 or 0)
 
 		if not instance then
 			if set_style ~= "mixed" then
-				instance = tag_db:Instantiate(tag, sub)
+				instance, w = tag_db:Instantiate(tag, sub), w + 50 -- TODO: measure maximum str width
 			else
 				instance = tag_db:Instantiate(tag, choice:GetSelectionData())
 			end
@@ -289,12 +301,20 @@ width = "30%", height = list.height, get_text = GetText, text_rect_height = "6%"
 			end
 		end
 
+		local ibox = display.newRect(agroup.items, self.x, 0, w, set_style and 30 or 15)
+		local below = self.y + self.height / 2
+
+		ibox:addEventListener("touch", Move)
+		ibox:setFillColor(.4)
+		ibox:setStrokeColor(random(), random(), random())
+
+		ibox.strokeWidth = 2
+
 		if not self.m_drag then
 			self.m_drag = display.newRect(agroup, 0, 0, ibox.width, ibox.height)
 
 			self.m_drag:setFillColor(0, 0)
 			self.m_drag:setStrokeColor(0, .9, 0)
-
 			self.m_drag:toFront()
 
 			self.m_drag.strokeWidth = 2
@@ -321,18 +341,20 @@ width = "30%", height = list.height, get_text = GetText, text_rect_height = "6%"
 		delete.m_object, delete.m_row = object, n
 
 		if set_style then
-			local x = ibox.x
-
-			if set_style == "mixed" then
-				-- add some text
-				-- friendly name = sub[tag_db:GetTemplate(tag, instance)]
-			end
-
-			local text = editable.Editable_XY(agroup.items, x, ibox.y, EditOpts)
+			local text = editable.Editable_XY(agroup.items, ibox.x, ibox.y, EditOpts)
 
 			text.m_instance = instance
 
 			text:SetText(common.GetLabel(instance) or "default")
+
+			if set_style == "mixed" then
+				local atext = sub[tag_db:GetTemplate(tag, instance)]
+				local about = display.newText(agroup.items, atext, 0, ibox.y, native.systemFont, 15)
+
+				about.x = text.x - about.width / 2 - 10
+
+				layout.PutRightOf(about, text, 10)
+			end
 		else
 			ibox.m_instance = instance
 
@@ -371,6 +393,11 @@ end
 --- DOCME
 function M.GetLinksGroup (box)
 	return box.parent.links
+end
+
+--- DOCME
+function M.Unload ()
+	ListboxOpts = nil
 end
 
 -- Export the module.

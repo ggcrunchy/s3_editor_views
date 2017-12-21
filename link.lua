@@ -303,8 +303,6 @@ local function AddAttachments (group, object, info, tag_db, tag)
 	local list, groups
 
 	for _, sub in tag_db:Sublinks(tag, "templates") do
-		list = list or {}
-
 		local is_source, iinfo = SublinkInfo(info, tag_db, tag, sub)
 		local gname, box = iinfo and iinfo.group
 
@@ -324,6 +322,7 @@ local function AddAttachments (group, object, info, tag_db, tag)
 		end
 
 		if box then
+			list = list or {}
 			list[#list + 1] = box
 			list[sub] = #list
 		end
@@ -600,6 +599,7 @@ end
 function M.Unload ()
 	Group, Indices, ItemGroup, LinkInfoEx, Order = nil
 
+	attachments.Unload()
 	box_layout.Unload()
 	cells.Unload()
 	connections.Unload()
