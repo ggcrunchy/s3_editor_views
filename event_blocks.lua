@@ -348,7 +348,7 @@ function M.Load (view)
 	TryOption = grid.ChoiceTrier(choices)
 
 	--
-	TileImages = common.SpriteSetFromThumbs("EventBlock", Types)
+	TileImages = common.SpriteSetFromThumbs(event_blocks.EditorEvent, Types)
 
 	--
 	CurrentEvent:Bind(TileImages, #TileImages)

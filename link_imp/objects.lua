@@ -139,25 +139,27 @@ end
 -- Listen to events.
 Runtime:addEventListener("set_object_positions", function()
 	for object, state in pairs(Tagged) do
-		local box, positions = state.m_box, {}
-		local attachments = box.m_attachments
+		if state then
+			local box, positions = state.m_box, {}
+			local attachments = box.m_attachments
 
-		positions[1], positions[2] = box.parent.x, box.parent.y
+			positions[1], positions[2] = box.parent.x, box.parent.y
 
-		for i = 1, #(attachments or "") do
-			for asub in pairs(attachments) do
-				if asub == attachments[i] then
-					positions[#positions + 1] = asub
+			for i = 1, #(attachments or "") do
+				for asub in pairs(attachments) do
+					if asub == attachments[i] then
+						positions[#positions + 1] = asub
 
-					break
+						break
+					end
 				end
+
+				positions[#positions + 1] = attachments[i].parent.x
+				positions[#positions + 1] = attachments[i].parent.y
 			end
 
-			positions[#positions + 1] = attachments[i].parent.x
-			positions[#positions + 1] = attachments[i].parent.y
+			common.SetPositions(object, positions)
 		end
-
-		common.SetPositions(object, positions)
 	end
 end)
 
