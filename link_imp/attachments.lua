@@ -109,6 +109,8 @@ local Delete = touch.TouchHelperFunc(function(_, button)
 	RemoveRow(items, row, neach, items.m_is_array)
 	RemoveRow(links, row, 1)
 	RemoveRange(fixed, nfixed, nfixed / nlinks) -- as above, in case more than one fixed object per row
+
+	common.Dirty()
 end)
 
 local function GetFromItemInfo (items, fi, ti, n, is_array)
@@ -307,6 +309,8 @@ function M.Box (group, object, tag_db, tag, sub, is_source, set_style)
 			if not set_style then
 				common.SetLabel(instance, n)
 			end
+
+			common.Dirty()
 		end
 
 		local ibox = display.newRect(agroup.items, self.x, 0, w, set_style and 35 or 15)

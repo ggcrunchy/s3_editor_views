@@ -70,6 +70,8 @@ local function Connect (_, link1, link2, node)
 
 	node.m_id1, node.m_id2 = id1, id2
 	nl1[node], nl2[node] = true, true
+
+	common.Dirty()
 end
 
 local function GetList (id)
@@ -81,6 +83,8 @@ local NodeTouch = link_group.BreakTouchFunc(function(node)
 	node.m_link:Break()
 
 	GetList(node.m_id1)[node], GetList(node.m_id2)[node] = nil
+
+	common.Dirty()
 end)
 
 local DoingLinks

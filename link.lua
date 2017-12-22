@@ -521,6 +521,17 @@ local function AddPrimaryBox (group, tag_db, tag, object)
 
 	box.m_attachments = alist
 
+	--
+	local positions = common.GetPositions(object)
+
+	if positions then
+		box.parent:translate(positions[1], positions[2])
+
+		for i = 3, #positions, 3 do
+			alist[positions[i]].parent:translate(positions[i + 1], positions[i + 2])
+		end
+	end
+
 	NodeListIndex = NodeListIndex + 1
 
 	ntext.y = box_layout.GetY1(box) + 10

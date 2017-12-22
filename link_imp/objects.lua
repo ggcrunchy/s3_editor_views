@@ -136,5 +136,30 @@ function M.Unload ()
 	Tagged, ToRemove, ToSort = nil
 end
 
+-- Listen to events.
+Runtime:addEventListener("set_object_positions", function()
+	for object, state in pairs(Tagged) do
+		local box, positions = object.m_box, {}
+		local attachments = box.m_attachments
+
+		positions[1], positions[2] = box.x, box.y
+
+		for i = 1, #(attachments or "") do
+			for asub in pairs(attachments) do
+				if asub == attachments[i] then
+					positions[#positions + 1] = asub
+
+					break
+				end
+			end
+
+			positions[#positions + 1] = attachments[i].x
+			positions[#positions + 1] = attachments[i].y
+		end
+
+		common.SetPositions(object, positions)
+	end
+end)
+
 -- Export the module.
 return M
