@@ -348,15 +348,29 @@ local function AddNameText (group, object)
 	return ntext
 end
 
-local function AssignPositions (primary, alist)
-	local x, y = FindFreeSpot()
+local function AssignPositions (primary, alist, positions)
+	local x, y
 
-	cells.PutBoxAt(primary, x, y)
+	if positions then
+		x, y = positions[1], positions[2]
+	else
+		x, y = FindFreeSpot()
+	end
 
-	for i = 1, #(alist or "") do
-		local abox = alist[i]
+	cells.PutBoxAt(primary, x, y, positions and "raw")
 
-		cells.PutBoxAt(abox, FindFreeSpot(x, abox.m_is_source and "right_of" or "left_of"))	
+	if positions and alist then
+		for i = 3, #positions, 3 do
+			local aindex = alist[positions[i]]
+
+			cells.PutBoxAt(alist[aindex], positions[i + 1], positions[i + 2], "raw")
+		end
+	else
+		for i = 1, #(alist or "") do
+			local abox = alist[i]
+
+			cells.PutBoxAt(abox, FindFreeSpot(x, abox.m_is_source and "right_of" or "left_of"))	
+		end
 	end
 end
 
@@ -522,21 +536,11 @@ local function AddPrimaryBox (group, tag_db, tag, object)
 	box.m_attachments = alist
 
 	--
-	local positions = common.GetPositions(object)
-
-	if positions then
-		box.parent:translate(positions[1], positions[2])
-
-		for i = 3, #positions, 3 do
-			alist[positions[i]].parent:translate(positions[i + 1], positions[i + 2])
-		end
-	end
-
 	NodeListIndex = NodeListIndex + 1
 
 	ntext.y = box_layout.GetY1(box) + 10
 
-	AssignPositions(box, alist)
+	AssignPositions(box, alist, common.GetPositions(object))
 
 	return box, ntext
 end

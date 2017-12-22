@@ -139,10 +139,10 @@ end
 -- Listen to events.
 Runtime:addEventListener("set_object_positions", function()
 	for object, state in pairs(Tagged) do
-		local box, positions = object.m_box, {}
+		local box, positions = state.m_box, {}
 		local attachments = box.m_attachments
 
-		positions[1], positions[2] = box.x, box.y
+		positions[1], positions[2] = box.parent.x, box.parent.y
 
 		for i = 1, #(attachments or "") do
 			for asub in pairs(attachments) do
@@ -153,8 +153,8 @@ Runtime:addEventListener("set_object_positions", function()
 				end
 			end
 
-			positions[#positions + 1] = attachments[i].x
-			positions[#positions + 1] = attachments[i].y
+			positions[#positions + 1] = attachments[i].parent.x
+			positions[#positions + 1] = attachments[i].parent.y
 		end
 
 		common.SetPositions(object, positions)

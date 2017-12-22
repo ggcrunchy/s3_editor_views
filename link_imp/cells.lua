@@ -152,8 +152,12 @@ function M.NewBox (group, w, h, radius)
 end
 
 --- DOCME
-function M.PutBoxAt (box, x, y)
-	box.parent:translate((x + .5) * CellDim, (y + .5) * CellDim)
+function M.PutBoxAt (box, x, y, how)
+	if how ~= "raw" then
+		box.parent:translate((x + .5) * CellDim, (y + .5) * CellDim)
+	else
+		box.parent:translate(x, y)
+	end
 
 	touch.Spoof(box) -- trigger began / ended logic
 end
