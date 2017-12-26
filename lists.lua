@@ -24,6 +24,7 @@
 --
 
 -- Standard library imports --
+local ipairs = ipairs
 local pairs = pairs
 local sort = table.sort
 
@@ -34,6 +35,7 @@ local events = require("s3_editor.Events")
 local help = require("s3_editor.Help")
 local layout = require("corona_ui.utils.layout")
 local list_views = require("s3_editor.ListViews")
+local menu = require("corona_ui.widgets.menu")
 local strings = require("tektite_core.var.strings")
 local table_funcs = require("tektite_core.table.funcs")
 local table_view_patterns = require("corona_ui.patterns.table_view")
@@ -217,37 +219,96 @@ local function Augment (params, name, func, combine)
 	end
 end
 
-local function GetText (data)
-	return strings.SplitIntoWords(data, "on_pattern")
-end
-
 --- DOCME
 function M.ListOfItemsMaker_Choices (name, mod, params)
 	params = table_funcs.Copy(params)
 
-	local Choices
+	local Choices, Dropdown, Names, Categories, Scratch
+
+	local function GetText (data)
+		local i1, i2 = data:find(Dropdown:GetSelection())
+
+		if i1 == 1 then
+			data = data:sub(i2 + 2) -- trim following underscore...
+		elseif i2 == #data then
+			data = data:sub(1, i1 - 2) -- ...or preceding...
+		elseif i1 then
+			data = data:sub(1, i1 - 1) .. data:sub(i2 + 2) -- ...arbitrarily keep one and trim the other
+		end
+
+		return strings.SplitIntoWords(data, "on_pattern")
+	end
 
 	Augment(params, "add_elements", function(group, list)
+		Names, Categories = mod.GetTypes()
+		Scratch = {}
+
+		for _, name in ipairs(Names) do
+			local category = Categories[name]
+
+			if not Scratch[category] then
+				Scratch[#Scratch + 1], Scratch[category] = category, true
+			end
+		end
+
+		sort(Scratch)
+
+		local text = display.newText(group, "Categories: ", 0, 0, native.systemFont, 16)
+
+		layout.PutRightOf(text, list, "5%")
+
+		Dropdown = menu.Dropdown{ group = group, column = Scratch, choice = "", column_width = "20%" }
+
+		Dropdown:addEventListener("item_change", function(event)
+			local category, n = event.text, 0
+
+			for _, name in ipairs(Names) do
+				if Categories[name] == category then
+					n, Scratch[n + 1] = n + 1, name
+				end
+			end
+
+			for i = #Scratch, n + 1, -1 do
+				Scratch[i] = nil
+			end
+
+			sort(Scratch)
+
+			Choices:AssignList(Scratch)
+		end)
+
+		local stash = Dropdown:StashDropdowns()
+
+		layout.PutRightOf(Dropdown, text, "2%")
+		layout.BottomAlignWith(Dropdown, layout.Above(list))
+		layout.CenterAtY(text, Dropdown:GetHeadingCenterY())
+
+		local below, bottom = layout.Below(Dropdown, "7.5%"), layout.Below(list)
+
+		Dropdown:RestoreDropdowns(stash)
+
 		Choices = table_view_patterns.Listbox(group, {
-			width = "30%", height = list.height, get_text = GetText, text_rect_height = "6%", text_size = "3.25%"
+			width = "30%", height = bottom - below, get_text = GetText, text_rect_height = "6%", text_size = "3.25%"
 		})
 
+		Dropdown:Select(Scratch[1])
+
 		layout.PutRightOf(Choices, list, "5%")
-		layout.BottomAlignWith(Choices, list)
+		layout.BottomAlignWith(Choices, bottom)
 
 		local ttext = display.newText(group, "Types", 0, 0, native.systemFont, layout.ResolveY("5%"))
 
 		layout.LeftAlignWith(ttext, Choices)
 		layout.PutAbove(ttext, Choices)
 
-		local names = mod.GetTypes()
-
-		sort(names)
-
-		Choices:AppendList(names)
+		Dropdown:toFront()
 
 		return { choices = Choices }
 	end, CombineHelpVars)
+
+	Augment(params, "unload", function()
+		Choices, Dropdown, Names, Categories, Scratch = nil
+	end)
 
 	return _ListOfItemsMaker_(name, mod, params, function()
 		return Choices:GetSelectionData()
