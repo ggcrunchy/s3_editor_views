@@ -30,13 +30,9 @@ local sort = table.sort
 
 -- Modules --
 local actions = require("s3_utils.state.actions")
-local common = require("s3_editor.Common")
 local common_ui = require("s3_editor.CommonUI")
-local config = require("config.GlobalEvents")
 local dialog = require("s3_editor.Dialog")
 local events = require("s3_editor.Events")
-local global_events = require("s3_utils.global_events")
-local grid1D = require("corona_ui.widgets.grid_1D")
 local help = require("s3_editor.Help")
 local layout = require("corona_ui.utils.layout")
 local list_views = require("s3_editor.ListViews")
@@ -50,9 +46,6 @@ local native = native
 
 -- Exports --
 local M = {}
-
--- --
-local Global
 
 -- --
 local Group
@@ -116,13 +109,6 @@ function M.Load (view)
 	--
 	Group = display.newGroup()
 
-	--
-	Global = { name = "Global" }
-
-	common.BindRepAndValuesWithTag(view, Global, common.GetTag(false, global_events.EditorEvent))
-	common.AttachLinkInfo(view, config.link_info)
-
-	--
 	ActionTypes = actions.GetTypes()
 	ValueTypes = values.GetTypes()
 
@@ -175,16 +161,13 @@ function M.Unload ()
 	ActionView:Unload()
 	ValueView:Unload()
 
-	Global, Group = nil -- TODO: remove more?
+	Group = nil
 end
 
 -- Listen to events.
 for k, v in pairs{
 	-- Build Level --
 	build_level = function(level)
-		level.global_events = events.BuildEntry(level, global_events, level.global_events, nil)[1]
-
-		--
 		local action_builds, value_builds
 
 		for _, aentry in pairs(level.actions.entries) do
@@ -200,14 +183,12 @@ for k, v in pairs{
 
 	-- Load Level WIP --
 	load_level_wip = function(level)
-		events.LoadValuesFromEntry(level, global_events, Global, level.global_events)
 		events.LoadGroupOfValues_List(level, "actions", actions, ActionView)
 		events.LoadGroupOfValues_List(level, "values", values, ValueView)
 	end,
 
 	-- Save Level WIP --
 	save_level_wip = function(level)
-		level.global_events = events.SaveValuesIntoEntry(level, global_events, Global, { version = 1 })
 		events.SaveGroupOfValues(level, "actions", actions, ActionView)
 		events.SaveGroupOfValues(level, "values", values, ValueView)
 	end,

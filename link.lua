@@ -46,6 +46,7 @@ local color = require("corona_ui.utils.color")
 local common = require("s3_editor.Common")
 local common_ui = require("s3_editor.CommonUI")
 local connections = require("s3_editor_views.link_imp.connections")
+local globals = require("s3_editor_views.link_imp.globals")
 local help = require("s3_editor.Help")
 local layout = require("corona_ui.utils.layout")
 local objects = require("s3_editor_views.link_imp.objects")
@@ -205,6 +206,7 @@ function M.Load (view)
 
 	--
 	connections.Load(link_layer, EmphasizeLinks, GatherLinks)
+	globals.Load(view)
 
 	Group.isVisible = false
 
@@ -637,6 +639,7 @@ function M.Unload ()
 	box_layout.Unload()
 	cells.Unload()
 	connections.Unload()
+	globals.Unload()
 	objects.Unload()
 end
 
