@@ -226,7 +226,7 @@ function M.ListOfItemsMaker_Choices (name, mod, params)
 	local Choices, Dropdown, Names, Categories, Scratch
 
 	local function GetText (data)
-		local i1, i2 = data:find(Dropdown:GetSelection())
+		local i1, i2 = data:find(Dropdown:GetSelection("text"))
 
 		if i1 == 1 then
 			data = data:sub(i2 + 2) -- trim following underscore...
