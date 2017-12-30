@@ -29,7 +29,6 @@ local pairs = pairs
 -- Modules --
 local common = require("s3_editor.Common")
 local grid = require("s3_editor.Grid")
-local grid_views = require("s3_editor.GridViews")
 local help = require("s3_editor.Help")
 local strings = require("tektite_core.var.strings")
 local tilesets = require("s3_utils.tilesets")
@@ -121,7 +120,9 @@ function M.Load (view)
 	--
 	local choices = { "Paint", "Erase" }
 
-	Choices = grid_views.AddCommandsBar{
+	Choices = common.AddCommandsBar{
+		title = "Tile commands",
+
 		"Mode:", { column = choices, column_width = 60 }, "m_mode",
 		"Tile:", {
 			column = TileColumns, sheets = { false }, column_width = 40, how = "no_op", image_width = 20, image_height = 20
