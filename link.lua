@@ -178,8 +178,8 @@ function M.Load (view)
 	common_ui.Frame(cont, 1, 0, 1)
 
 	--
-	DragTouch = touch.DragParentTouch_Child(1, {
-		clamp = "max", ref = "object",
+	DragTouch = touch.DragParentTouch{--_Child(1, {
+		clamp = "max", offset_by_object = true,--ref = "object",
 
 		on_began = function(_, box)
 			cells.RemoveFromCell(ItemGroup, box)
@@ -188,7 +188,7 @@ function M.Load (view)
 		on_ended = function(_, box)
 			cells.AddToCell(ItemGroup, box)
 		end
-	})
+	}--)
 
 	-- Draggable thing...
 	local drag = display.newRect(Group, cont.x, cont.y, cw, ch)

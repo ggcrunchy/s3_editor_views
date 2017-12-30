@@ -47,13 +47,17 @@ local Tabs
 
 --
 local function Cell (event)
+	local existed = StartPos ~= nil
+
 	StartPos = grid_views.ImageUpdate(event.target, event.x, event.y, editor_config.player_image, StartPos)
 
 	if event.col ~= StartPos.m_col or event.row ~= StartPos.m_row then
 		StartPos.m_col = event.col
 		StartPos.m_row = event.row
 
-		common.Dirty()
+		if existed then
+			common.Dirty()
+		end
 	end
 end
 

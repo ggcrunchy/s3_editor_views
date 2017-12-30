@@ -24,17 +24,18 @@
 --
 
 -- Standard library imports --
-local format = string.format
 local pairs = pairs
 
 -- Modules --
 local common = require("s3_editor.Common")
 local grid = require("s3_editor.Grid")
-local grid1D = require("corona_ui.widgets.grid_1D")
 local grid_views = require("s3_editor.GridViews")
 local help = require("s3_editor.Help")
-local sheet = require("corona_utils.sheet")
 local strings = require("tektite_core.var.strings")
+local tilesets = require("s3_utils.tilesets")
+
+-- Corona globals --
+local display = display
 
 -- Exports --
 local M = {}
@@ -43,56 +44,47 @@ local M = {}
 local Grid
 
 -- --
-local TileImages
-
--- --
-local CurrentTile
-
--- --
 local Erase, TryOption
 
 -- --
-local Tabs
+local Choices
 
 -- --
 local Tiles
 
 -- --
-local TileNames = {	"_H", "_V", "UL", "UR", "LL", "LR", "TT", "LT", "RT", "BT", "_4", "_U", "_L", "_R", "_D" }
+local TileNames = tilesets.GetShorthands()
+
+-- --
+local Names = tilesets.GetNames()
+
+-- --
+local IsLoading
 
 --
 local function Cell (event)
-	local key, is_dirty = strings.PairToKey(event.col, event.row)
+	local key, maybe_dirty = strings.PairToKey(event.col, event.row)
 	local tile = Tiles[key]
 
-	--
 	if Erase then
-		if tile then
-			tile:removeSelf()
-
-			is_dirty = true
-		end
-
-		Tiles[key] = nil
-
-	--
+		maybe_dirty, Tiles[key] = tile
 	else
-		if tile then
-			is_dirty = sheet.GetSpriteSetImageFrame(tile) ~= CurrentTile:GetCurrent()
-		else
+		local id = Choices.m_tile:GetSelection("id")
+
+		if not (tile and tile.m_id == id) then
 			local grid = event.target
 
-			Tiles[key] = sheet.NewImage(grid:GetCanvas(), TileImages, event.x, event.y, grid:GetCellDims())
-
-			is_dirty = true
+			Tiles[key] = tilesets.NewTile(grid:GetCanvas(), Names[id], event.x, event.y, grid:GetCellDims())
+			Tiles[key].m_id, maybe_dirty = id, true
 		end
-
-		sheet.SetSpriteSetImageFrame(Tiles[key], CurrentTile:GetCurrent())
 	end
 
-	--
-	if is_dirty then
-		common.Dirty()
+	if maybe_dirty then
+		display.remove(tile)
+
+		if not IsLoading then
+			common.Dirty()
+		end
 	end
 end
 
@@ -105,6 +97,19 @@ local function ShowHide (event)
 	end
 end
 
+--
+local TileColumns = {}
+
+for i, name in ipairs(Names) do
+	TileColumns[#TileColumns + 1] = {
+		id = i,
+		frame = tilesets.GetFrameFromName(name),
+		shader = function(tile)
+			tilesets.SetTileShader(tile, name)
+		end
+	}
+end
+
 ---
 -- @pgroup view X
 function M.Load (view)
@@ -114,70 +119,77 @@ function M.Load (view)
 	Grid:addEventListener("show", ShowHide)
 
 	--
-	local thumbs = {}
-
-	for _, name in ipairs(TileNames) do
-		thumbs[#thumbs + 1] = format("s3_editor/tiles/%s.png", name)
-	end
-
-	TileImages = sheet.NewSpriteSetFromImages(thumbs)
-	CurrentTile = grid1D.OptionsHGrid(view, "18.75%", "10.4%", "25%", "20.8%", "Current tile")
-
-	--
 	local choices = { "Paint", "Erase" }
 
-	Tabs = grid_views.AddTabs(view, choices, function(label)
-		return function()
-			Erase = label == "Erase"
+	Choices = grid_views.AddCommandsBar{
+		"Mode:", { column = choices, column_width = 60 }, "m_mode",
+		"Tile:", {
+			column = TileColumns, sheets = { false }, column_width = 40, how = "no_op", image_width = 20, image_height = 20
+		}, "m_tile",
+		"Tileset:", { column = tilesets.GetTypes(), column_width = 60, how = "no_op" }, "m_tileset"
+	}
 
-			CurrentTile.isVisible = not Erase
+	Choices.isVisible = false
 
-			return true
+	Choices.m_mode:addEventListener("item_change", function(event)
+		Erase = event.text == "Erase"
+	end)
+
+	IsLoading = true
+
+	Choices.m_tileset:addEventListener("item_change", function(event)
+		tilesets.UseTileset(event.text)
+
+		for _, tile in pairs(Tiles) do
+			tilesets.SetTileShader(tile, Names[tile.m_id])
 		end
-	end, "25%")
+
+		if not IsLoading then
+			common.IsDirty()
+		end
+	end)
+	Choices.m_tileset:Select(nil, "first_in_first_column") -- do this first to trigger tileset_details_changed
+
+	IsLoading = false
+
+	Choices.m_tile:Select(nil, "first_in_first_column")
+
+	view:insert(Choices)
 
 	--
 	TryOption = grid.ChoiceTrier(choices)
-
-	--
-	CurrentTile:Bind(TileImages, #TileNames - 4) -- 4 for (unimplemented) up, left, right, down...
-
-	CurrentTile.isVisible = false
-
+--[[
 	--
 	help.AddHelp("Tiles", { current = CurrentTile, tabs = Tabs })
 	help.AddHelp("Tiles", {
 		current = "The current tile. When painting, cells are populated with this tile.",
 		["tabs:1"] = "'Paint Mode' is used to add new tiles to the level, by clicking a grid cell or dragging across the grid.",
 		["tabs:2"] = "'Erase Mode' is used to remove tiles from the level, by clicking an occupied grid cell or dragging across the grid."
-	})
+	})]]
 end
 
 --- DOCMAYBE
 function M.Enter ()
 	grid.Show(Grid)
-	TryOption(Tabs)
-	common.ShowCurrent(CurrentTile, not Erase)
+--	TryOption(Tabs)
 
-	Tabs.isVisible = true
+	Choices.isVisible = true
 
 	help.SetContext("Tiles")
 end
 
 --- DOCMAYBE
 function M.Exit ()
-	Tabs.isVisible = false
+	Choices.isVisible = false
 
-	grid.SetChoice(Erase and "Erase" or "Paint")
-	common.ShowCurrent(CurrentTile, false)
+--	grid.SetChoice(Erase and "Erase" or "Paint")
+--	common.ShowCurrent(CurrentTile, false)
 	grid.Show(false)
 end
 
 --- DOCMAYBE
 function M.Unload ()
-	Tabs:removeSelf()
-
-	CurrentTile, Erase, Grid, Tabs, Tiles, TileImages, TryOption = nil
+	Choices, Erase, Grid, Tiles, TryOption = nil
 end
 
 -- Listen to events.
@@ -206,15 +218,19 @@ for k, v in pairs{
 	load_level_wip = function(level)
 		grid.Show(Grid)
 
-		level.tiles.version = nil
+		IsLoading, level.tiles.version = true
+
+		Choices.m_tileset:Select(level.tileset)
 
 		for k, v in pairs(level.tiles) do
-			CurrentTile:SetCurrent(v)
+			Choices.m_tile:Select(v)
 
 			Grid:TouchCell(strings.KeyToPair(k))
 		end
 
-		CurrentTile:SetCurrent(1)
+		IsLoading = false
+
+		Choices.m_tile:Select(nil, "first_in_first_column")
 
 		grid.ShowOrHide(Tiles)
 		grid.Show(false)
@@ -247,9 +263,17 @@ for k, v in pairs{
 	-- Save Level WIP --
 	save_level_wip = function(level)
 		level.tiles = { version = 1 }
+		level.tileset = Choices.m_tileset:GetSelection("text")
 
 		for k, v in pairs(Tiles) do
-			level.tiles[k] = sheet.GetSpriteSetImageFrame(v)
+			level.tiles[k] = v.m_id
+		end
+	end,
+
+	-- Tileset Details Changed --
+	tileset_details_changed = function()
+		if Choices then
+			Choices.m_tile:UpdateSheet(1, tilesets.GetSheet(), tilesets.GetShader())
 		end
 	end,
 
