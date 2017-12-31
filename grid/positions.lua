@@ -47,12 +47,12 @@ local GridView = grid_views.EditErase(Dialog, "position", "circle")
 -- @pgroup view X
 function M.Load (view)
 	GridView:Load(view, "Position")
-
+--[[
 	help.AddHelp("Position", {
 		["tabs:1"] = "'Paint Mode' is used to add new positions to the level, by clicking a grid cell or dragging across the grid.",
 		["tabs:2"] = "'Edit Mode' lets the user edit a position's properties. Clicking an occupied grid cell will call up a dialog.",
 		["tabs:3"] = "'Erase Mode' is used to remove positions from the level, by clicking an occupied grid cell or dragging across the grid."
-	})
+	})]]
 end
 
 ---
@@ -60,7 +60,7 @@ end
 function M.Enter (view)
 	GridView:Enter(view)
 
-	help.SetContext("Position")
+--	help.SetContext("Position")
 end
 
 --- DOCMAYBE

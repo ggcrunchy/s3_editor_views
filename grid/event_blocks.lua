@@ -66,9 +66,6 @@ local Dialog = dialog.DialogWrapper(event_blocks.EditorEvent)
 -- --
 local CanFill, Name, ID
 
--- --
-local IsLoading
-
 --
 local function FitTo (rep, ul, lr)
 	local x, y, w, h = ul.x, ul.y, ul.width, ul.height
@@ -461,7 +458,7 @@ end
 --
 function Cell (event)
 	local col, row = event.col, event.row
-	local key, maybe_dirty = strings.PairToKey(col, row)
+	local key = strings.PairToKey(col, row)
 	local tile = Tiles[key]
 
 	--
@@ -474,7 +471,7 @@ function Cell (event)
 			AddImage(event.target:GetCanvas(), key, id, event.x, event.y, event.target:GetCellDims())
 			AddRep(Blocks[id], Types[which])
 
-			maybe_dirty = true
+			common.Dirty()
 		end
 
 	--
@@ -497,7 +494,9 @@ function Cell (event)
 
 			Blocks[id].cache:removeSelf()
 
-			Blocks[id], maybe_dirty = false, true
+			Blocks[id] = false
+
+			common.Dirty()
 		end
 
 	--
@@ -520,17 +519,13 @@ function Cell (event)
 			end
 		end
 	end
-
-	if maybe_dirty and not IsLoading then
-		common.Dirty()
-	end
 end
 
 --- DOCMAYBE
 function M.Enter ()
 	grid.Show(Grid)
 	common.ShowCurrent(Choices, Options)
-	help.SetContext("EventBlock")
+--	help.SetContext("EventBlock")
 end
 
 --- DOCMAYBE
@@ -588,7 +583,7 @@ for k, v in pairs{
 	load_level_wip = function(level)
 		grid.Show(Grid)
 
-		IsLoading, level.event_blocks.version = true
+		level.event_blocks.version = nil
 
 		for id, block in ipairs(level.event_blocks.blocks) do
 			if block then
@@ -606,8 +601,6 @@ for k, v in pairs{
 				Blocks[#Blocks + 1] = false
 			end
 		end
-
-		IsLoading = false
 
 		grid.ShowOrHide(Tiles, function(tile, show)
 			tile.id_str.isVisible = show

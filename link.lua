@@ -178,8 +178,8 @@ function M.Load (view)
 	common_ui.Frame(cont, 1, 0, 1)
 
 	--
-	DragTouch = touch.DragParentTouch{--_Child(1, {
-		clamp = "max", offset_by_object = true,--ref = "object",
+	DragTouch = touch.DragParentTouch{
+		clamp = "max", offset_by_object = true,
 
 		on_began = function(_, box)
 			cells.RemoveFromCell(ItemGroup, box)
@@ -188,7 +188,7 @@ function M.Load (view)
 		on_ended = function(_, box)
 			cells.AddToCell(ItemGroup, box)
 		end
-	}--)
+	}
 
 	-- Draggable thing...
 	local drag = display.newRect(Group, cont.x, cont.y, cw, ch)
@@ -209,13 +209,13 @@ function M.Load (view)
 	globals.Load(view)
 
 	Group.isVisible = false
-
+--[[
 	help.AddHelp("Link", { cont = cont })
 	help.AddHelp("Link", {
 		cont =  "Drag boxes to move them, or the background to move the world. Links can be established by dragging from an " ..
 				"output node (on the right side) to a linkable input node (left side), or vice versa. Links are broken by " ..
 				"clicking the dot on the line between the nodes. TODO: Far apart nodes"
-	})
+	})]]
 end
 
 -- --
@@ -621,7 +621,7 @@ function M.Enter (_)
 	--
 	Group.isVisible = true
 
-	help.SetContext("Link")
+--	help.SetContext("Link")
 end
 
 --- DOCMAYBE

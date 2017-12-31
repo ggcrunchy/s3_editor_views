@@ -57,9 +57,6 @@ local TileNames = tilesets.GetShorthands()
 -- --
 local Names = tilesets.GetNames()
 
--- --
-local IsLoading
-
 --
 local function Cell (event)
 	local key, maybe_dirty = strings.PairToKey(event.col, event.row)
@@ -80,10 +77,7 @@ local function Cell (event)
 
 	if maybe_dirty then
 		display.remove(tile)
-
-		if not IsLoading then
-			common.Dirty()
-		end
+		common.Dirty()
 	end
 end
 
@@ -135,9 +129,6 @@ function M.Load (view)
 	Choices.m_mode:addEventListener("item_change", function(event)
 		Erase = event.text == "Erase"
 	end)
-
-	IsLoading = true
-
 	Choices.m_tileset:addEventListener("item_change", function(event)
 		tilesets.UseTileset(event.text)
 
@@ -145,14 +136,9 @@ function M.Load (view)
 			tilesets.SetTileShader(tile, Names[tile.m_id])
 		end
 
-		if not IsLoading then
-			common.IsDirty()
-		end
+		common.IsDirty()
 	end)
 	Choices.m_tileset:Select(nil, "first_in_first_column") -- do this first to trigger tileset_details_changed
-
-	IsLoading = false
-
 	Choices.m_tile:Select(nil, "first_in_first_column")
 
 	view:insert(Choices)
@@ -171,7 +157,7 @@ end
 function M.Enter ()
 	grid.Show(Grid)
 	common.ShowCurrent(Choices, Options)
-	help.SetContext("Tiles")
+--	help.SetContext("Tiles")
 end
 
 --- DOCMAYBE
@@ -211,7 +197,7 @@ for k, v in pairs{
 	load_level_wip = function(level)
 		grid.Show(Grid)
 
-		IsLoading, level.tiles.version = true
+		level.tiles.version = nil
 
 		Choices.m_tileset:Select(level.tileset)
 
@@ -220,8 +206,6 @@ for k, v in pairs{
 
 			Grid:TouchCell(strings.KeyToPair(k))
 		end
-
-		IsLoading = false
 
 		Choices.m_tile:Select(nil, "first_in_first_column")
 

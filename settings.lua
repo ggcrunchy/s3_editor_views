@@ -75,7 +75,7 @@ end
 function M.Enter ()
 	Group.isVisible = true
 
-	help.SetContext("settings")
+--	help.SetContext("settings")
 end
 
 --- DOCMAYBE

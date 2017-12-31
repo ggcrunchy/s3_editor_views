@@ -106,9 +106,9 @@ function M.ListOfItemsMaker (name, mod, params, name_func)
 		--
 		hvars = hvars or {}
 		hvars[name] = list
-
+--[[
 		help.AddHelp(HelpName, hvars)
-		help.AddHelp(HelpName, params.help_text)
+		help.AddHelp(HelpName, params.help_text)]]
 	end
 
 	---
@@ -118,7 +118,7 @@ function M.ListOfItemsMaker (name, mod, params, name_func)
 
 		ListView:Enter(view)
 
-		help.SetContext(HelpName)
+	--	help.SetContext(HelpName)
 	end
 
 	--- DOCMAYBE

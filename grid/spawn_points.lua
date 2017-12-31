@@ -43,14 +43,14 @@ local GridView = grid_views.EditErase(Dialog, enemies.GetTypes())
 --- DOCME
 -- @pgroup view X
 function M.Load (view)
-	GridView:Load(view, "Enemy", "Current enemy: %s")
-
+	GridView:Load(view, "Enemy")
+--[[
 	help.AddHelp("Enemy", {
 		current = "The current enemy type. When painting, cells are populated with this type's spawn point.",
 		["tabs:1"] = "'Paint Mode' is used to add new spawn points to the level, by clicking a grid cell or dragging across the grid.",
 		["tabs:2"] = "'Edit Mode' lets the user edit a spawn point's properties. Clicking an occupied grid cell will call up a dialog.",
 		["tabs:3"] = "'Erase Mode' is used to remove spawn points from the level, by clicking an occupied grid cell or dragging across the grid."
-	})
+	})]]
 end
 
 --- DOCME
@@ -58,7 +58,7 @@ end
 function M.Enter (view)
 	GridView:Enter(view)
 
-	help.SetContext("Enemy")
+--	help.SetContext("Enemy")
 end
 
 --- DOCME

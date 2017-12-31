@@ -80,7 +80,7 @@ function M.Enter ()
 
 	-- Zoom factors?
 
-	help.SetContext("Player")
+--	help.SetContext("Player")
 end
 
 --- DOCMAYBE

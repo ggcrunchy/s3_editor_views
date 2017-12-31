@@ -124,7 +124,7 @@ function M.Load (view)
 
 	view:insert(Group)
 
-	--
+	--[[
 	help.AddHelp("State", {
 		action = action_list, value = value_list,
 		achoices = achoices, vchoices = vchoices
@@ -134,7 +134,7 @@ function M.Load (view)
 		value = "Add or remove values.",
 		achoices = "Action type to add.",
 		vchoices = "Value type to add."
-	})
+	})]]
 end
 
 ---
@@ -145,7 +145,7 @@ function M.Enter (view)
 	ActionView:Enter(view)
 	ValueView:Enter(view)
 
-	help.SetContext("State")
+--	help.SetContext("State")
 end
 
 --- DOCMAYBE

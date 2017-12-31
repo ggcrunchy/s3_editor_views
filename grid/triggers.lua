@@ -52,12 +52,12 @@ function M.Load (view)
 	-- Affected by: player, other? (also a bitfield?)
 	-- One-time? Reset?
 	GridView:Load(view, "Trigger")
-
+--[[
 	help.AddHelp("Trigger", {
 		["tabs:1"] = "'Paint Mode' is used to add new triggers to the level, by clicking a grid cell or dragging across the grid.",
 		["tabs:2"] = "'Edit Mode' lets the user edit a trigger's properties. Clicking an occupied grid cell will call up a dialog.",
 		["tabs:3"] = "'Erase Mode' is used to remove triggers from the level, by clicking an occupied grid cell or dragging across the grid."
-	})
+	})]]
 end
 
 ---
@@ -65,7 +65,7 @@ end
 function M.Enter (view)
 	GridView:Enter(view)
 
-	help.SetContext("Trigger")
+--	help.SetContext("Trigger")
 end
 
 --- DOCMAYBE
