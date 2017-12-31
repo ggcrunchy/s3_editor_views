@@ -43,7 +43,7 @@ local M = {}
 local Grid
 
 -- --
-local Erase, TryOption
+local Erase
 
 -- --
 local Choices
@@ -109,6 +109,9 @@ for i, name in ipairs(Names) do
 	}
 end
 
+--
+local Options = { "Paint", "Erase" }
+
 ---
 -- @pgroup view X
 function M.Load (view)
@@ -117,13 +120,10 @@ function M.Load (view)
 	Grid:addEventListener("cell", Cell)
 	Grid:addEventListener("show", ShowHide)
 
-	--
-	local choices = { "Paint", "Erase" }
-
 	Choices = common.AddCommandsBar{
 		title = "Tile commands",
 
-		"Mode:", { column = choices, column_width = 60 }, "m_mode",
+		"Mode:", { column = Options, column_width = 60 }, "m_mode",
 		"Tile:", {
 			column = TileColumns, sheets = { false }, column_width = 40, how = "no_op", image_width = 20, image_height = 20
 		}, "m_tile",
@@ -157,8 +157,6 @@ function M.Load (view)
 
 	view:insert(Choices)
 
-	--
-	TryOption = grid.ChoiceTrier(choices)
 --[[
 	--
 	help.AddHelp("Tiles", { current = CurrentTile, tabs = Tabs })
@@ -172,25 +170,19 @@ end
 --- DOCMAYBE
 function M.Enter ()
 	grid.Show(Grid)
---	TryOption(Tabs)
-
-	Choices.isVisible = true
-
+	common.ShowCurrent(Choices, Options)
 	help.SetContext("Tiles")
 end
 
 --- DOCMAYBE
 function M.Exit ()
-	Choices.isVisible = false
-
---	grid.SetChoice(Erase and "Erase" or "Paint")
---	common.ShowCurrent(CurrentTile, false)
+	common.ShowCurrent(Choices, false)
 	grid.Show(false)
 end
 
 --- DOCMAYBE
 function M.Unload ()
-	Choices, Erase, Grid, Tiles, TryOption = nil
+	Choices, Erase, Grid, Tiles = nil
 end
 
 -- Listen to events.

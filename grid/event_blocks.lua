@@ -34,10 +34,7 @@ local dialog = require("s3_editor.Dialog")
 local event_blocks = require("s3_utils.event_blocks")
 local events = require("s3_editor.Events")
 local grid = require("s3_editor.Grid")
---local grid1D = require("corona_ui.widgets.grid_1D")
---local grid_views = require("s3_editor.GridViews")
 local help = require("s3_editor.Help")
---local sheet = require("corona_utils.sheet")
 local strings = require("tektite_core.var.strings")
 local touch = require("corona_ui.utils.touch")
 
@@ -49,17 +46,10 @@ local native = native
 local M = {}
 
 -- --
-local TileImages
-
--- --
---local CurrentEvent
 local Choices
 
 -- --
-local Option, TryOption
-
--- --
-local Tabs
+local Option
 
 -- --
 local Blocks
@@ -291,6 +281,9 @@ local function ShowHide (event)
 	end
 end
 
+-- --
+local Options = { "Paint", "Edit", "Stretch", "Erase" }
+
 ---
 -- @pgroup view X
 function M.Load (view)
@@ -303,10 +296,7 @@ function M.Load (view)
 	Types = event_blocks.GetTypes()
 
 	--
---	CurrentEvent = grid1D.OptionsHGrid(view, "18.75%", "10.4%", "25%", "20.8%", "Current event: %s", { types = Types })
-
-	--
-	local choices, block_column, editor_event = { "Paint", "Edit", "Stretch", "Erase" }, {}, event_blocks.EditorEvent
+	local block_column, editor_event = {}, event_blocks.EditorEvent
 
 	for i, name in ipairs(Types) do
 		block_column[#block_column + 1] = { id = i, filename = editor_event(name, "get_thumb_filename") }
@@ -315,68 +305,49 @@ function M.Load (view)
 	Choices = common.AddCommandsBar{
 		title = "Event block commands",
 
-		"Mode:", { column = choices, column_width = 60 }, "m_mode",
+		"Mode:", { column = Options, column_width = 60 }, "m_mode",
 		"Block:", {
 			column = block_column, column_width = 40, image_width = 20, image_height = 20
 		}, "m_block"
 	}
---[[
-	Tabs = grid_views.AddTabs(view, choices, function(label)
-		return function()]]
+
 	Choices.m_mode:addEventListener("item_change", function(event)
 		local label = event.text
 
-			if Option ~= label then
-			--	common.ShowCurrent(CurrentEvent, label == "Paint")
+		if Option ~= label then
+			--
+			if Option == "Edit" then
+				Dialog("close")
 
-				--
-				if Option == "Edit" then
-					Dialog("close")
+			--
+			elseif Option == "Stretch" then
+				grid.ShowOrHide(Tiles, function(tile, show)
+					tile.image.isVisible = show
+				end)
 
-				--
-				elseif Option == "Stretch" then
-					grid.ShowOrHide(Tiles, function(tile, show)
-						tile.image.isVisible = show
-					end)
-
-					for _, block in ipairs(Blocks) do
-						ShowHandles(block)
-					end
+				for _, block in ipairs(Blocks) do
+					ShowHandles(block)
 				end
-
-				--
-				if label == "Stretch" then
-					grid.ShowOrHide(Tiles, function(tile)
-						tile.image.isVisible = false
-					end)
-
-					for id, block in ipairs(Blocks) do
-						ShowHandles(block, view, id)
-					end
-				end
-
-				Option = label
-
-			--	return true
 			end
-	--	end
-	end)--, "45%")
+
+			--
+			if label == "Stretch" then
+				grid.ShowOrHide(Tiles, function(tile)
+					tile.image.isVisible = false
+				end)
+
+				for id, block in ipairs(Blocks) do
+					ShowHandles(block, view, id)
+				end
+			end
+
+			Option = label
+		end
+	end)
 
 	Choices.isVisible, Option = false, "Paint"
 
 	view:insert(Choices)
-
-	--
-	TryOption = grid.ChoiceTrier(choices)
-
-	--
-	--TileImages = common.SpriteSetFromThumbs(event_blocks.EditorEvent, Types)
-
-	--[[
-	CurrentEvent:Bind(TileImages, #TileImages)
-	CurrentEvent:toFront()
-
-	common.ShowCurrent(CurrentEvent, false)]]
 
 	--[[
 	help.AddHelp("EventBlock", { current = CurrentEvent, tabs = Tabs })
@@ -412,9 +383,8 @@ local Fill = { type = "image" }
 local function AddImage (group, key, id, x, y, w, h, hide)
 	local block = Blocks[id]
 	local cache, n = GetCache(block, group)
-	local image = n > 0 and cache[n - 1] or display.newRect(group, 0, 0, w, h)--sheet.NewImage(group, TileImages, 0, 0, w, h)
+	local image = n > 0 and cache[n - 1] or display.newRect(group, 0, 0, w, h)
 
---	sheet.SetSpriteSetImageFrame(image, events.GetIndex(Types, block.info.type))
 	image.fill, Fill.filename = Fill, event_blocks.EditorEvent(block.info.type, "get_thumb_filename")
 
 	image.x, image.y, image.isVisible = x, y, not hide
@@ -497,7 +467,7 @@ function Cell (event)
 	--
 	if Option == "Paint" then
 		if not tile then
-			local id, which = FindFreeID(), Choices.m_block:GetSelection("id")--CurrentEvent:GetCurrent()
+			local id, which = FindFreeID(), Choices.m_block:GetSelection("id")
 
 			Blocks[id] = { col1 = col, row1 = row, col2 = col, row2 = row, info = Dialog("new_values", Types[which], id) }
 
@@ -510,7 +480,7 @@ function Cell (event)
 	--
 	elseif Option == "Edit" then
 		if tile then
-			Dialog("edit", Blocks[tile.id].info, --[[CurrentEvent]]Choices.parent, tile.id)
+			Dialog("edit", Blocks[tile.id].info, Choices.parent, tile.id)
 		else
 			Dialog("close")
 		end
@@ -559,11 +529,7 @@ end
 --- DOCMAYBE
 function M.Enter ()
 	grid.Show(Grid)
-	TryOption(Tabs, Option)
---	common.ShowCurrent(CurrentEvent, Option == "Paint")
-	Choices.isVisible = true
---	Tabs.isVisible = true
-
+	common.ShowCurrent(Choices, Options)
 	help.SetContext("EventBlock")
 end
 
@@ -571,19 +537,13 @@ end
 function M.Exit ()
 	Dialog("close")
 
---	Tabs.isVisible = false
-	Choices.isVisible = false
-
-	grid.SetChoice(Option)
---	common.ShowCurrent(CurrentEvent, false)
+	common.ShowCurrent(Choices, false)
 	grid.Show(false)
 end
 
 --- DOCMAYBE
 function M.Unload ()
---	Tabs:removeSelf()
-
-	--[[CurrentEvent, ]]Grid, Option, Blocks, Tabs, Tiles, TileImages, TryOption, Types = nil
+	Grid, Option, Blocks, Tiles, Types = nil
 end
 
 --
