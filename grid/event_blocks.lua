@@ -31,6 +31,7 @@ local min = math.min
 -- Modules --
 local common = require("s3_editor.Common")
 local dialog = require("s3_editor.Dialog")
+local editor_strings = require("config.EditorStrings")
 local event_blocks = require("s3_utils.event_blocks")
 local events = require("s3_editor.Events")
 local grid = require("s3_editor.Grid")
@@ -281,6 +282,9 @@ end
 -- --
 local Options = { "Paint", "Edit", "Stretch", "Erase" }
 
+-- --
+local HelpContext
+
 ---
 -- @pgroup view X
 function M.Load (view)
@@ -299,8 +303,9 @@ function M.Load (view)
 		block_column[#block_column + 1] = { id = i, filename = editor_event(name, "get_thumb_filename") }
 	end
 
+	HelpContext = help.NewContext()
 	Choices = common.AddCommandsBar{
-		title = "Event block commands",
+		title = "Event block commands", help_context = HelpContext, help_text = editor_strings("event_block"),
 
 		"Mode:", { column = Options, column_width = 60 }, "m_mode",
 		"Block:", {
@@ -345,16 +350,8 @@ function M.Load (view)
 	Choices.isVisible, Option = false, "Paint"
 
 	view:insert(Choices)
-
-	--[[
-	help.AddHelp("EventBlock", { current = CurrentEvent, tabs = Tabs })
-	help.AddHelp("EventBlock", {
-		current = "The current event block type. When painting, cells are populated with this event block.",
-		["tabs:1"] = "'Paint Mode' is used to add new event blocks to the level, by clicking an unoccupied grid cell or dragging across the grid.",
-		["tabs:2"] = "'Edit Mode' lets the user edit an event block's properties. Clicking any occupied grid cell will call up a dialog.",
-		["tabs:3"] = "'Stretch Mode' is used to change an event block's area. Click and drag either of the two handles at the current corners.",
-		["tabs:4"] = "'Erase Mode' is used to remove event blocks from the level, by clicking any occupied grid cell or dragging across the grid."
-	})]]
+	HelpContext:Register()
+	HelpContext:Show(false)
 end
 
 --
@@ -525,7 +522,8 @@ end
 function M.Enter ()
 	grid.Show(Grid)
 	common.ShowCurrent(Choices, Options)
---	help.SetContext("EventBlock")
+
+	HelpContext:Show(true)
 end
 
 --- DOCMAYBE
@@ -534,11 +532,13 @@ function M.Exit ()
 
 	common.ShowCurrent(Choices, false)
 	grid.Show(false)
+
+	HelpContext:Show(false)
 end
 
 --- DOCMAYBE
 function M.Unload ()
-	Grid, Option, Blocks, Tiles, Types = nil
+	Grid, HelpContext, Option, Blocks, Tiles, Types = nil
 end
 
 --
