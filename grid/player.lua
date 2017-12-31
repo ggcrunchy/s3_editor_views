@@ -37,13 +37,7 @@ local M = {}
 local Grid
 
 -- --
-local Option
-
--- --
 local StartPos
-
--- --
-local Tabs
 
 --
 local function Cell (event)
@@ -63,75 +57,40 @@ end
 
 ---
 -- @pgroup view X
-function M.Load (view)
+function M.Load (_)
 	Grid = grid.NewGrid()
 
 	Grid:addEventListener("cell", Cell)
 	Grid:TouchCell(1, 1)
 
-	--
-	local choices = { "Start" }--, "Events" } -- todo: other player stuff, not events
-
-	Tabs = grid_views.AddTabs(view, choices, function(label)
-		return function()
-			if Option ~= label then
-				--
-				if Option == "Start" then
-					grid.Show(false)
-				-- else...
-				end
-
-				--
-				if label == "Start" then
-					grid.Show(Grid)
-				-- else ...
-				end
-
-				Option = label
-			end
-
-			return true
-		end
-	end, 200)
-
-	--
 	grid.Show(false)
-
+--[[
 	--
 	help.AddHelp("Player", { tabs = Tabs })
 	help.AddHelp("Player", {
 		["tabs:1"] = "'Start' is used to choose where the player will first appear in the level.",
 --		["tabs:2"] = "other stuff!"
 	})
+	]]
 end
 
 --- DOCMAYBE
 function M.Enter ()
-	if Option == "Start" then
-		grid.Show(Grid)
-	end
+	grid.Show(Grid)
 
 	-- Zoom factors?
-	-- Triggers (can be affected by enemies?)
-	-- "positions"
-
-	Tabs.isVisible = true
 
 	help.SetContext("Player")
 end
 
 --- DOCMAYBE
 function M.Exit ()
-	Tabs.isVisible = false
-
 	grid.Show(false)
 end
 
 --- DOCMAYBE
 function M.Unload ()
-	Tabs:removeSelf()
-
-	Grid, Option, StartPos, Tabs = nil
+	Grid, StartPos = nil
 end
 
 -- Listen to events.

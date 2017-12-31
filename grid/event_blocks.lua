@@ -34,15 +34,16 @@ local dialog = require("s3_editor.Dialog")
 local event_blocks = require("s3_utils.event_blocks")
 local events = require("s3_editor.Events")
 local grid = require("s3_editor.Grid")
-local grid1D = require("corona_ui.widgets.grid_1D")
-local grid_views = require("s3_editor.GridViews")
+--local grid1D = require("corona_ui.widgets.grid_1D")
+--local grid_views = require("s3_editor.GridViews")
 local help = require("s3_editor.Help")
-local sheet = require("corona_utils.sheet")
+--local sheet = require("corona_utils.sheet")
 local strings = require("tektite_core.var.strings")
 local touch = require("corona_ui.utils.touch")
 
 -- Corona globals --
 local display = display
+local native = native
 
 -- Exports --
 local M = {}
@@ -51,7 +52,8 @@ local M = {}
 local TileImages
 
 -- --
-local CurrentEvent
+--local CurrentEvent
+local Choices
 
 -- --
 local Option, TryOption
@@ -73,6 +75,9 @@ local Dialog = dialog.DialogWrapper(event_blocks.EditorEvent)
 
 -- --
 local CanFill, Name, ID
+
+-- --
+local IsLoading
 
 --
 local function FitTo (rep, ul, lr)
@@ -206,7 +211,7 @@ local function UpdateBlock (block)
 end
 
 --
-local HandleTouch = touch.TouchHelperFunc(function(event, handle)
+local HandleTouch = touch.TouchHelperFunc(function(_, handle)
 	local block = Blocks[handle.m_id]
 	local hgroup = block.m_handle_group
 
@@ -235,6 +240,7 @@ end, function(_, handle)
 	hgroup.isVisible, block.selection, CanFill, ID, Name = true
 
 	UpdateHandles(block)
+	-- TODO: only dirty if end result has changed?
 end)
 
 --
@@ -257,15 +263,11 @@ end
 local function ShowHandles (block, group, id)
 	if not block then
 		return
-	
-	--
 	elseif group then
 		AddHandle(block, "ul", id)
 		AddHandle(block, "lr", id)
 
 		UpdateHandles(block)
-
-	--
 	else
 		block.m_ul:removeSelf()
 		block.m_lr:removeSelf()
@@ -301,15 +303,31 @@ function M.Load (view)
 	Types = event_blocks.GetTypes()
 
 	--
-	CurrentEvent = grid1D.OptionsHGrid(view, "18.75%", "10.4%", "25%", "20.8%", "Current event: %s", { types = Types })
+--	CurrentEvent = grid1D.OptionsHGrid(view, "18.75%", "10.4%", "25%", "20.8%", "Current event: %s", { types = Types })
 
 	--
-	local choices = { "Paint", "Edit", "Stretch", "Erase" }
+	local choices, block_column, editor_event = { "Paint", "Edit", "Stretch", "Erase" }, {}, event_blocks.EditorEvent
 
+	for i, name in ipairs(Types) do
+		block_column[#block_column + 1] = { id = i, filename = editor_event(name, "get_thumb_filename") }
+	end
+
+	Choices = common.AddCommandsBar{
+		title = "Event block commands",
+
+		"Mode:", { column = choices, column_width = 60 }, "m_mode",
+		"Block:", {
+			column = block_column, column_width = 40, image_width = 20, image_height = 20
+		}, "m_block"
+	}
+--[[
 	Tabs = grid_views.AddTabs(view, choices, function(label)
-		return function()
+		return function()]]
+	Choices.m_mode:addEventListener("item_change", function(event)
+		local label = event.text
+
 			if Option ~= label then
-				common.ShowCurrent(CurrentEvent, label == "Paint")
+			--	common.ShowCurrent(CurrentEvent, label == "Paint")
 
 				--
 				if Option == "Edit" then
@@ -339,24 +357,28 @@ function M.Load (view)
 
 				Option = label
 
-				return true
+			--	return true
 			end
-		end
-	end, "45%")
+	--	end
+	end)--, "45%")
+
+	Choices.isVisible, Option = false, "Paint"
+
+	view:insert(Choices)
 
 	--
 	TryOption = grid.ChoiceTrier(choices)
 
 	--
-	TileImages = common.SpriteSetFromThumbs(event_blocks.EditorEvent, Types)
+	--TileImages = common.SpriteSetFromThumbs(event_blocks.EditorEvent, Types)
 
-	--
+	--[[
 	CurrentEvent:Bind(TileImages, #TileImages)
 	CurrentEvent:toFront()
 
-	common.ShowCurrent(CurrentEvent, false)
+	common.ShowCurrent(CurrentEvent, false)]]
 
-	--
+	--[[
 	help.AddHelp("EventBlock", { current = CurrentEvent, tabs = Tabs })
 	help.AddHelp("EventBlock", {
 		current = "The current event block type. When painting, cells are populated with this event block.",
@@ -364,7 +386,7 @@ function M.Load (view)
 		["tabs:2"] = "'Edit Mode' lets the user edit an event block's properties. Clicking any occupied grid cell will call up a dialog.",
 		["tabs:3"] = "'Stretch Mode' is used to change an event block's area. Click and drag either of the two handles at the current corners.",
 		["tabs:4"] = "'Erase Mode' is used to remove event blocks from the level, by clicking any occupied grid cell or dragging across the grid."
-	})
+	})]]
 end
 
 --
@@ -384,13 +406,16 @@ local function GetCache (block, group)
 	return cache, n
 end
 
+local Fill = { type = "image" }
+
 --
 local function AddImage (group, key, id, x, y, w, h, hide)
 	local block = Blocks[id]
 	local cache, n = GetCache(block, group)
-	local image = n > 0 and cache[n - 1] or sheet.NewImage(group, TileImages, 0, 0, w, h)
+	local image = n > 0 and cache[n - 1] or display.newRect(group, 0, 0, w, h)--sheet.NewImage(group, TileImages, 0, 0, w, h)
 
-	sheet.SetSpriteSetImageFrame(image, events.GetIndex(Types, block.info.type))
+--	sheet.SetSpriteSetImageFrame(image, events.GetIndex(Types, block.info.type))
+	image.fill, Fill.filename = Fill, event_blocks.EditorEvent(block.info.type, "get_thumb_filename")
 
 	image.x, image.y, image.isVisible = x, y, not hide
 -- TODO (make this a block thing? the rep?)
@@ -466,26 +491,26 @@ end
 --
 function Cell (event)
 	local col, row = event.col, event.row
-	local key = strings.PairToKey(col, row)
+	local key, maybe_dirty = strings.PairToKey(col, row)
 	local tile = Tiles[key]
 
 	--
 	if Option == "Paint" then
 		if not tile then
-			local id, which = FindFreeID(), CurrentEvent:GetCurrent()
+			local id, which = FindFreeID(), Choices.m_block:GetSelection("id")--CurrentEvent:GetCurrent()
 
 			Blocks[id] = { col1 = col, row1 = row, col2 = col, row2 = row, info = Dialog("new_values", Types[which], id) }
 
 			AddImage(event.target:GetCanvas(), key, id, event.x, event.y, event.target:GetCellDims())
 			AddRep(Blocks[id], Types[which])
 
-			common.Dirty()
+			maybe_dirty = true
 		end
 
 	--
 	elseif Option == "Edit" then
 		if tile then
-			Dialog("edit", Blocks[tile.id].info, CurrentEvent.parent, tile.id)
+			Dialog("edit", Blocks[tile.id].info, --[[CurrentEvent]]Choices.parent, tile.id)
 		else
 			Dialog("close")
 		end
@@ -502,9 +527,7 @@ function Cell (event)
 
 			Blocks[id].cache:removeSelf()
 
-			Blocks[id] = false
-
-			common.Dirty()
+			Blocks[id], maybe_dirty = false, true
 		end
 
 	--
@@ -527,15 +550,19 @@ function Cell (event)
 			end
 		end
 	end
+
+	if maybe_dirty and not IsLoading then
+		common.Dirty()
+	end
 end
 
 --- DOCMAYBE
 function M.Enter ()
 	grid.Show(Grid)
 	TryOption(Tabs, Option)
-	common.ShowCurrent(CurrentEvent, Option == "Paint")
-
-	Tabs.isVisible = true
+--	common.ShowCurrent(CurrentEvent, Option == "Paint")
+	Choices.isVisible = true
+--	Tabs.isVisible = true
 
 	help.SetContext("EventBlock")
 end
@@ -544,18 +571,19 @@ end
 function M.Exit ()
 	Dialog("close")
 
-	Tabs.isVisible = false
+--	Tabs.isVisible = false
+	Choices.isVisible = false
 
 	grid.SetChoice(Option)
-	common.ShowCurrent(CurrentEvent, false)
+--	common.ShowCurrent(CurrentEvent, false)
 	grid.Show(false)
 end
 
 --- DOCMAYBE
 function M.Unload ()
-	Tabs:removeSelf()
+--	Tabs:removeSelf()
 
-	CurrentEvent, Grid, Option, Blocks, Tabs, Tiles, TileImages, TryOption, Types = nil
+	--[[CurrentEvent, ]]Grid, Option, Blocks, Tabs, Tiles, TileImages, TryOption, Types = nil
 end
 
 --
@@ -600,7 +628,7 @@ for k, v in pairs{
 	load_level_wip = function(level)
 		grid.Show(Grid)
 
-		level.event_blocks.version = nil
+		IsLoading, level.event_blocks.version = true
 
 		for id, block in ipairs(level.event_blocks.blocks) do
 			if block then
@@ -618,6 +646,8 @@ for k, v in pairs{
 				Blocks[#Blocks + 1] = false
 			end
 		end
+
+		IsLoading = false
 
 		grid.ShowOrHide(Tiles, function(tile, show)
 			tile.id_str.isVisible = show
@@ -650,7 +680,7 @@ for k, v in pairs{
 		if verify.pass == 1 then
 			local names = {}
 
-			for id, block in ipairs(Blocks) do
+			for _, block in ipairs(Blocks) do
 				if block then
 					if events.CheckForNameDups("event block", verify, names, block.info) then
 						return
