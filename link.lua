@@ -44,8 +44,8 @@ local box_layout = require("s3_editor_views.link_imp.box_layout")
 local cells = require("s3_editor_views.link_imp.cells")
 local color = require("corona_ui.utils.color")
 local common = require("s3_editor.Common")
-local common_ui = require("s3_editor.CommonUI")
 local connections = require("s3_editor_views.link_imp.connections")
+local editor_strings = require("config.EditorStrings")
 local globals = require("s3_editor_views.link_imp.globals")
 local help = require("s3_editor.Help")
 local layout = require("corona_ui.utils.layout")
@@ -69,12 +69,6 @@ local ItemGroup
 
 -- --
 local LinkInfoEx
-
--- --
-local X, Y = 120, 80
-
--- --
-local X0, Y0
 
 -- --
 local XOff, YOff
@@ -140,6 +134,9 @@ end
 -- --
 cells.SetCellFraction(.35)
 
+-- --
+local HelpContext
+
 ---
 -- @pgroup view X
 function M.Load (view)
@@ -150,32 +147,37 @@ function M.Load (view)
 
 	view:insert(Group)
 
-	local cont = display.newContainer(display.contentWidth - (X + 10), display.contentHeight - (Y + 10))
+	local y_base = common.GetTopHeight()
+	local cont = display.newContainer(display.contentWidth, display.contentHeight - y_base)
 
 	Group:insert(cont)
+
+	HelpContext = help.NewContext()
+
+	HelpContext:Add(cont, editor_strings("link"))
+	HelpContext:Register()
+	HelpContext:Show(false)
 
 	--
 	cells.Load(cont)
 	objects.Load()
 
 	--
-	local cw, ch = cont.width, cont.height
+	local cw, ch, x0, y0 = cont.width, cont.height
 
 	cont:insert(ItemGroup)
 
-	X0, Y0, XOff, YOff = -cw / 2, -ch / 2, 0, 0
+	x0, y0, XOff, YOff = -cw / 2, -ch / 2, 0, 0
 
-	ItemGroup:translate(X0, Y0)
+	ItemGroup:translate(x0, y0)
 
 	local link_layer = display.newGroup()
 
 	cont:insert(link_layer)
+	link_layer:translate(x0, y0 - y_base)
 
-	link_layer:translate(X0 - (X + 5), Y0 - (Y + 5))
-
-	layout.PutRightOf(cont, X, 5)
-	layout.PutBelow(cont, Y, 5)
-	common_ui.Frame(cont, 1, 0, 1)
+	layout.LeftAlignWith(cont, 0)
+	layout.TopAlignWith(cont, y_base)
 
 	--
 	DragTouch = touch.DragParentTouch{
@@ -197,7 +199,7 @@ function M.Load (view)
 		x0 = "cur", y0 = "cur", xclamp = "view_max", yclamp = "view_max",
 
 		on_post_move = function(ig)
-			XOff, YOff = X0 - ig.x, Y0 - ig.y
+			XOff, YOff = x0 - ig.x, y0 - ig.y
 		end
 	}))
 	drag:toBack()
@@ -209,13 +211,6 @@ function M.Load (view)
 	globals.Load(view)
 
 	Group.isVisible = false
---[[
-	help.AddHelp("Link", { cont = cont })
-	help.AddHelp("Link", {
-		cont =  "Drag boxes to move them, or the background to move the world. Links can be established by dragging from an " ..
-				"output node (on the right side) to a linkable input node (left side), or vice versa. Links are broken by " ..
-				"clicking the dot on the line between the nodes. TODO: Far apart nodes"
-	})]]
 end
 
 -- --
@@ -621,7 +616,7 @@ function M.Enter (_)
 	--
 	Group.isVisible = true
 
---	help.SetContext("Link")
+	HelpContext:Show(true)
 end
 
 --- DOCMAYBE
@@ -629,6 +624,8 @@ function M.Exit ()
 	-- Tear down link groups
 
 	Group.isVisible = false
+
+	HelpContext:Show(false)
 end
 
 --- DOCMAYBE
