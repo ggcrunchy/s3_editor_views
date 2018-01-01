@@ -28,9 +28,9 @@ local pairs = pairs
 
 -- Modules --
 local dialog = require("s3_editor.Dialog")
+local editor_strings = require("config.EditorStrings")
 local events = require("s3_editor.Events")
 local grid_views = require("s3_editor.GridViews")
-local help = require("s3_editor.Help")
 local strings = require("tektite_core.var.strings")
 local triggers = require("s3_utils.triggers")
 
@@ -51,21 +51,13 @@ function M.Load (view)
 	-- Have bitfields: on(enter): { left, right, top, bottom }, on(leave): ditto
 	-- Affected by: player, other? (also a bitfield?)
 	-- One-time? Reset?
-	GridView:Load(view, "Trigger")
---[[
-	help.AddHelp("Trigger", {
-		["tabs:1"] = "'Paint Mode' is used to add new triggers to the level, by clicking a grid cell or dragging across the grid.",
-		["tabs:2"] = "'Edit Mode' lets the user edit a trigger's properties. Clicking an occupied grid cell will call up a dialog.",
-		["tabs:3"] = "'Erase Mode' is used to remove triggers from the level, by clicking an occupied grid cell or dragging across the grid."
-	})]]
+	GridView:Load(view, "Trigger", editor_strings("trigger_mode"))
 end
 
 ---
 -- @pgroup view X
 function M.Enter (view)
 	GridView:Enter(view)
-
---	help.SetContext("Trigger")
 end
 
 --- DOCMAYBE

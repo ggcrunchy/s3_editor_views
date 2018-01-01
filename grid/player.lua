@@ -28,7 +28,7 @@ local common = require("s3_editor.Common")
 local editor_config = require("config.Editor")
 local grid = require("s3_editor.Grid")
 local grid_views = require("s3_editor.GridViews")
-local help = require("s3_editor.Help")
+--local help = require("s3_editor.Help")
 
 -- Exports --
 local M = {}
@@ -64,14 +64,6 @@ function M.Load (_)
 	Grid:TouchCell(1, 1)
 
 	grid.Show(false)
---[[
-	--
-	help.AddHelp("Player", { tabs = Tabs })
-	help.AddHelp("Player", {
-		["tabs:1"] = "'Start' is used to choose where the player will first appear in the level.",
---		["tabs:2"] = "other stuff!"
-	})
-	]]
 end
 
 --- DOCMAYBE
@@ -79,8 +71,6 @@ function M.Enter ()
 	grid.Show(Grid)
 
 	-- Zoom factors?
-
---	help.SetContext("Player")
 end
 
 --- DOCMAYBE

@@ -28,6 +28,7 @@ local pairs = pairs
 
 -- Modules --
 local common = require("s3_editor.Common")
+local editor_strings = require("config.EditorStrings")
 local grid = require("s3_editor.Grid")
 local help = require("s3_editor.Help")
 local strings = require("tektite_core.var.strings")
@@ -103,6 +104,9 @@ for i, name in ipairs(Names) do
 	}
 end
 
+-- --
+local HelpContext
+
 --
 local Options = { "Paint", "Erase" }
 
@@ -114,14 +118,15 @@ function M.Load (view)
 	Grid:addEventListener("cell", Cell)
 	Grid:addEventListener("show", ShowHide)
 
+	HelpContext = help.NewContext()
 	Choices = common.AddCommandsBar{
-		title = "Tile commands",
+		title = "Tile commands", help_context = HelpContext,
 
-		"Mode:", { column = Options, column_width = 60 }, "m_mode",
+		"Mode:", { column = Options, column_width = 60 }, "m_mode", editor_strings("tile_mode"),
 		"Tile:", {
 			column = TileColumns, sheets = { false }, column_width = 40, how = "no_op", image_width = 20, image_height = 20
-		}, "m_tile",
-		"Tileset:", { column = tilesets.GetTypes(), column_width = 60, how = "no_op" }, "m_tileset"
+		}, "m_tile", editor_strings("tile_cur"),
+		"Tileset:", { column = tilesets.GetTypes(), column_width = 60, how = "no_op" }, "m_tileset", editor_strings("tileset")
 	}
 
 	Choices.isVisible = false
@@ -142,33 +147,29 @@ function M.Load (view)
 	Choices.m_tile:Select(nil, "first_in_first_column")
 
 	view:insert(Choices)
-
---[[
-	--
-	help.AddHelp("Tiles", { current = CurrentTile, tabs = Tabs })
-	help.AddHelp("Tiles", {
-		current = "The current tile. When painting, cells are populated with this tile.",
-		["tabs:1"] = "'Paint Mode' is used to add new tiles to the level, by clicking a grid cell or dragging across the grid.",
-		["tabs:2"] = "'Erase Mode' is used to remove tiles from the level, by clicking an occupied grid cell or dragging across the grid."
-	})]]
+	HelpContext:Register()
+	HelpContext:Show(false)
 end
 
 --- DOCMAYBE
 function M.Enter ()
 	grid.Show(Grid)
 	common.ShowCurrent(Choices, Options)
---	help.SetContext("Tiles")
+
+	HelpContext:Show(true)
 end
 
 --- DOCMAYBE
 function M.Exit ()
 	common.ShowCurrent(Choices, false)
 	grid.Show(false)
+
+	HelpContext:Show(false)
 end
 
 --- DOCMAYBE
 function M.Unload ()
-	Choices, Erase, Grid, Tiles = nil
+	Choices, Erase, Grid, HelpContext, Tiles = nil
 end
 
 -- Listen to events.

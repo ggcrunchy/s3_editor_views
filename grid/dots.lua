@@ -29,9 +29,9 @@ local pairs = pairs
 -- Modules --
 local dialog = require("s3_editor.Dialog")
 local dots = require("s3_utils.dots")
+local editor_strings = require("config.EditorStrings")
 local events = require("s3_editor.Events")
 local grid_views = require("s3_editor.GridViews")
-local help = require("s3_editor.Help")
 local strings = require("tektite_core.var.strings")
 
 -- Exports --
@@ -46,22 +46,13 @@ local GridView = grid_views.EditErase(Dialog, dots.GetTypes())
 --- DOCME
 -- @pgroup view X
 function M.Load (view)
-	GridView:Load(view, "Dot")
---[[
-	help.AddHelp("Dot", {
-		current = "The current dot type. When painting, cells are populated with this dot.",
-		["tabs:1"] = "'Paint Mode' is used to add new dots to the level, by clicking a grid cell or dragging across the grid.",
-		["tabs:2"] = "'Edit Mode' lets the user edit a dot's properties. Clicking an occupied grid cell will call up a dialog.",
-		["tabs:3"] = "'Erase Mode' is used to remove dots from the level, by clicking an occupied grid cell or dragging across the grid."
-	})]]
+	GridView:Load(view, "Dot", editor_strings("dot_mode"), editor_strings("dot_cur"))
 end
 
 --- DOCME
 -- @pgroup view
 function M.Enter (view)
 	GridView:Enter(view)
-
---	help.SetContext("Dot")
 end
 
 --- DOCME

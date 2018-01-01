@@ -25,10 +25,10 @@
 
 -- Modules --
 local dialog = require("s3_editor.Dialog")
+local editor_strings = require("config.EditorStrings")
 local enemies = require("s3_utils.enemies")
 local events = require("s3_editor.Events")
 local grid_views = require("s3_editor.GridViews")
-local help = require("s3_editor.Help")
 local strings = require("tektite_core.var.strings")
 
 -- Exports --
@@ -43,22 +43,15 @@ local GridView = grid_views.EditErase(Dialog, enemies.GetTypes())
 --- DOCME
 -- @pgroup view X
 function M.Load (view)
-	GridView:Load(view, "Enemy")
---[[
-	help.AddHelp("Enemy", {
-		current = "The current enemy type. When painting, cells are populated with this type's spawn point.",
-		["tabs:1"] = "'Paint Mode' is used to add new spawn points to the level, by clicking a grid cell or dragging across the grid.",
-		["tabs:2"] = "'Edit Mode' lets the user edit a spawn point's properties. Clicking an occupied grid cell will call up a dialog.",
-		["tabs:3"] = "'Erase Mode' is used to remove spawn points from the level, by clicking an occupied grid cell or dragging across the grid."
-	})]]
+	GridView:Load(view, "Enemy", editor_strings("spawn_point_mode"), {
+		column_width = 115, help = editor_strings("spawn_point_cur")
+	})
 end
 
 --- DOCME
 -- @pgroup view
 function M.Enter (view)
 	GridView:Enter(view)
-
---	help.SetContext("Enemy")
 end
 
 --- DOCME

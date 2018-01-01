@@ -305,12 +305,12 @@ function M.Load (view)
 
 	HelpContext = help.NewContext()
 	Choices = common.AddCommandsBar{
-		title = "Event block commands", help_context = HelpContext, help_text = editor_strings("event_block"),
+		title = "Event block commands", help_context = HelpContext,
 
-		"Mode:", { column = Options, column_width = 60 }, "m_mode",
+		"Mode:", { column = Options, column_width = 60 }, "m_mode", editor_strings("event_block_mode"),
 		"Block:", {
 			column = block_column, column_width = 40, image_width = 20, image_height = 20
-		}, "m_block"
+		}, "m_block", editor_strings("event_block_cur")
 	}
 
 	Choices.m_mode:addEventListener("item_change", function(event)
