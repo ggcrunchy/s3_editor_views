@@ -48,7 +48,6 @@ local connections = require("s3_editor_views.link_imp.connections")
 local editor_strings = require("config.EditorStrings")
 local globals = require("s3_editor_views.link_imp.globals")
 local help = require("s3_editor.Help")
-local layout = require("corona_ui.utils.layout")
 local objects = require("s3_editor_views.link_imp.objects")
 local touch = require("corona_ui.utils.touch")
 
@@ -71,7 +70,7 @@ local ItemGroup
 local LinkInfoEx
 
 -- --
-local XOff, YOff
+local Offset
 
 -- Box drag listener --
 local DragTouch
@@ -116,7 +115,7 @@ end
 local function GatherLinks (items)
 	local boxes_seen = items.m_boxes_seen or {}
 
-	cells.GatherVisibleBoxes(XOff, YOff, boxes_seen)
+	cells.GatherVisibleBoxes(Offset.x, Offset.y, boxes_seen)
 
 	sort(boxes_seen, SortByID) -- make links agree with render order
 
@@ -143,14 +142,12 @@ function M.Load (view)
 	box_layout.Load()
 
 	--
-	Group, ItemGroup, LinkInfoEx = display.newGroup(), display.newGroup(), {}
+	Group, ItemGroup, LinkInfoEx, Offset = display.newGroup(), display.newGroup(), {}, {}
 
 	view:insert(Group)
 
-	local y_base = common.GetTopHeight()
-	local cont = display.newContainer(display.contentWidth, display.contentHeight - y_base)
-
-	Group:insert(cont)
+	local link_layer = display.newGroup()
+	local cont = common.NewScreenSizeContainer(Group, ItemGroup, Offset, { layers = { link_layer } })
 
 	HelpContext = help.NewContext()
 
@@ -161,23 +158,6 @@ function M.Load (view)
 	--
 	cells.Load(cont)
 	objects.Load()
-
-	--
-	local cw, ch, x0, y0 = cont.width, cont.height
-
-	cont:insert(ItemGroup)
-
-	x0, y0, XOff, YOff = -cw / 2, -ch / 2, 0, 0
-
-	ItemGroup:translate(x0, y0)
-
-	local link_layer = display.newGroup()
-
-	cont:insert(link_layer)
-	link_layer:translate(x0, y0 - y_base)
-
-	layout.LeftAlignWith(cont, 0)
-	layout.TopAlignWith(cont, y_base)
 
 	--
 	DragTouch = touch.DragParentTouch{
@@ -191,20 +171,6 @@ function M.Load (view)
 			cells.AddToCell(ItemGroup, box)
 		end
 	}
-
-	-- Draggable thing...
-	local drag = display.newRect(Group, cont.x, cont.y, cw, ch)
-
-	drag:addEventListener("touch", touch.DragViewTouch(ItemGroup, {
-		x0 = "cur", y0 = "cur", xclamp = "view_max", yclamp = "view_max",
-
-		on_post_move = function(ig)
-			XOff, YOff = x0 - ig.x, y0 - ig.y
-		end
-	}))
-	drag:toBack()
-
-	drag.isHitTestable, drag.isVisible = true, false
 
 	--
 	connections.Load(link_layer, EmphasizeLinks, GatherLinks)
@@ -630,7 +596,7 @@ end
 
 --- DOCMAYBE
 function M.Unload ()
-	Group, Indices, ItemGroup, LinkInfoEx, Order = nil
+	Group, Indices, ItemGroup, LinkInfoEx, Offset, Order = nil
 
 	attachments.Unload()
 	box_layout.Unload()

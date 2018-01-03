@@ -31,6 +31,4 @@ local sound = require("s3_utils.sound")
 --
 --
 
-return lists.ListOfItemsMaker("sound", sound, {
-	help_text = { sound = "Add or remove sound samples." }, text = "Sound samples"
-})
+return lists.ListOfItemsMaker("sound", sound, { text = "Sound samples" })

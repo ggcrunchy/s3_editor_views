@@ -31,6 +31,4 @@ local lists = require("s3_editor_views.lists")
 --
 --
 
-return lists.ListOfItemsMaker_Choices("actions", actions, {
-	help_text = { action = "Add or remove actions.", choices = "Action type to add." }, text = "Actions"
-})
+return lists.ListOfItemsMaker_Choices("actions", actions, { text = "Actions" })

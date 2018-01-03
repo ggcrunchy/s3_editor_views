@@ -26,6 +26,7 @@
 -- Modules --
 local checkbox = require("corona_ui.widgets.checkbox")
 local editable = require("corona_ui.patterns.editable")
+local editor_strings = require("config.EditorStrings")
 local layout = require("corona_ui.utils.layout")
 local layout_dsl = require("corona_ui.utils.layout_dsl")
 local lists = require("s3_editor_views.lists")
@@ -79,10 +80,11 @@ local function AddFlag (music, name, flag)
 end
 
 return lists.ListOfItemsMaker("music", music, {
-	add_elements = function(group, list, bottom)
+	add_elements = function(group, list, bottom, _, help_context)
 		Enter = checkbox.Checkbox(group, "5%", "8.33%")
 
 		Enter:Check(true)
+		help_context:Add(Enter, editor_strings("music_enter"))
 
 		layout.PutBelow(Enter, bottom, "2.1%")
 		layout.LeftAlignWith(Enter, list)
@@ -93,12 +95,14 @@ return lists.ListOfItemsMaker("music", music, {
 		layout.PutRightOf(enter_str, Enter, xsep)
 
 		PlayOnEnter = editable.Editable_XY(group, 0, Enter.y)
+		help_context:Add(PlayOnEnter, editor_strings("music_play_on_enter"))
 
 		layout.PutRightOf(PlayOnEnter, enter_str, xsep)
 
 		Reset = checkbox.Checkbox_XY(group, 0, Enter.y, "5%", "8.3%")
 
 		Reset:Check(true)
+		help_context:Add(Reset, editor_strings("music_reset"))
 
 		layout.PutRightOf(Reset, PlayOnEnter, xsep * 3)
 
@@ -107,6 +111,7 @@ return lists.ListOfItemsMaker("music", music, {
 		layout.PutRightOf(reset_str, Reset, xsep)
 
 		PlayOnReset = editable.Editable_XY(group, 0, Enter.y)
+		help_context:Add(PlayOnReset, editor_strings("music_play_on_reset"))
 
 		layout.PutRightOf(PlayOnReset, reset_str, xsep)
 
@@ -124,16 +129,6 @@ return lists.ListOfItemsMaker("music", music, {
 		AddFlag(builds, state.enter and state.play_on_enter, "play_on_enter")
 		AddFlag(builds, state.reset and state.play_on_reset, "play_on_reset")
 	end,
-
-	help_text = {
-		music = "Add or remove music tracks.",
-		enter = "Should music play as soon as the level is entered?",
-		play_on_enter = "If music should play when entering the level, the name of the track to play. " ..
-						"(This is optional when there is only one track.)",
-		reset = "When the level is reset, should a new track play?",
-		play_on_reset = "If new music should play when the level is reset, the name of the track to " ..
-						"play. (If absent, the level-entering track is used.)"
-	},
 
 	load_level_wip = function(level)
 		local state = level.music_state

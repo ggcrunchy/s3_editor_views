@@ -31,6 +31,7 @@ local sort = table.sort
 -- Modules --
 local common_ui = require("s3_editor.CommonUI")
 local dialog = require("s3_editor.Dialog")
+local editor_strings = require("config.EditorStrings")
 local events = require("s3_editor.Events")
 local help = require("s3_editor.Help")
 local layout = require("corona_ui.utils.layout")
@@ -55,13 +56,13 @@ local M = {}
 --
 --
 
-local function List (group, str, view, top, r, g, b)
+local function List (group, str, view, top, r, g, b, help_context)
 	local text = display.newText(group, str, 0, 0, native.systemFont, layout.ResolveY("5%"))
 
 	layout.PutRightOf(text, "15.625%")
 	layout.PutBelow(text, top)
 
-	local list, bottom = view:Load(group, layout.Below(text), layout.LeftOf(text))
+	local list, bottom = view:Load(group, layout.Below(text), layout.LeftOf(text), help_context)
 
 	common_ui.Frame(list, r, g, b)
 
@@ -83,32 +84,29 @@ function M.ListOfItemsMaker (name, mod, params, name_func)
 	local ListView = list_views.EditErase(Dialog, name_func or name)
 
 	-- --
-	local HelpName = name:sub(1, 1):upper() .. name:sub(2)
+	local HelpContext
 
 	---
 	-- @pgroup view X
 	function LVM.Load (view)
-		--
 		Group = display.newGroup()
+		HelpContext = help.NewContext()
 
 		--
-		local hvars, list, bottom = nil, List(Group, params.text, ListView, "16.67%", 0, 0, 1)
+		local list, bottom = List(Group, params.text, ListView, "16.67%", 0, 0, 1, HelpContext)
 
+		HelpContext:Add(list, editor_strings(name .. "_choices"))
+	
 		if params.add_elements then
-			hvars = params.add_elements(Group, list, bottom)
+			params.add_elements(Group, list, bottom, name, HelpContext)
 		end
 
 		--
 		Group.isVisible = false
 
 		view:insert(Group)
-
-		--
-		hvars = hvars or {}
-		hvars[name] = list
---[[
-		help.AddHelp(HelpName, hvars)
-		help.AddHelp(HelpName, params.help_text)]]
+		HelpContext:Register()
+		HelpContext:Show(false)
 	end
 
 	---
@@ -117,13 +115,13 @@ function M.ListOfItemsMaker (name, mod, params, name_func)
 		Group.isVisible = true
 
 		ListView:Enter(view)
-
-	--	help.SetContext(HelpName)
+		HelpContext:Show(true)
 	end
 
 	--- DOCMAYBE
 	function LVM.Exit ()
 		ListView:Exit()
+		HelpContext:Show(false)
 
 		Group.isVisible = false
 	end
@@ -131,6 +129,8 @@ function M.ListOfItemsMaker (name, mod, params, name_func)
 	--- DOCMAYBE
 	function LVM.Unload ()
 		ListView:Unload()
+
+		Group, HelpContext = nil
 
 		if params.unload then
 			params.unload()
@@ -239,9 +239,8 @@ function M.ListOfItemsMaker_Choices (name, mod, params)
 		return strings.SplitIntoWords(data, "on_pattern")
 	end
 
-	Augment(params, "add_elements", function(group, list)
-		Names, Categories = mod.GetTypes()
-		Scratch = {}
+	Augment(params, "add_elements", function(group, list, _, name, help_context)
+		Scratch, Names, Categories = {}, mod.GetTypes()
 
 		for _, name in ipairs(Names) do
 			local category = Categories[name]
@@ -257,7 +256,7 @@ function M.ListOfItemsMaker_Choices (name, mod, params)
 
 		layout.PutRightOf(text, list, "5%")
 
-		Dropdown = menu.Dropdown{ group = group, column = Scratch, choice = "", column_width = "20%" }
+		Dropdown = menu.Dropdown{ group = group, column = Scratch, how = "no_op", column_width = "20%" }
 
 		Dropdown:addEventListener("item_change", function(event)
 			local category, n = event.text, 0
@@ -285,6 +284,7 @@ function M.ListOfItemsMaker_Choices (name, mod, params)
 
 		local below, bottom = layout.Below(Dropdown, "7.5%"), layout.Below(list)
 
+		help_context:Add(Dropdown, editor_strings(name .. "_category"))
 		Dropdown:RestoreDropdowns(stash)
 
 		Choices = table_view_patterns.Listbox(group, {
@@ -292,6 +292,7 @@ function M.ListOfItemsMaker_Choices (name, mod, params)
 		})
 
 		Dropdown:Select(Scratch[1])
+		help_context:Add(Choices, editor_strings(name .. "_types"))
 
 		layout.PutRightOf(Choices, list, "5%")
 		layout.BottomAlignWith(Choices, bottom)

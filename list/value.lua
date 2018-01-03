@@ -31,6 +31,4 @@ local values = require("s3_utils.state.values")
 --
 --
 
-return lists.ListOfItemsMaker_Choices("values", values, {
-	help_text = { value = "Add or remove values.", choices = "Value type to add." }, text = "Values"
-})
+return lists.ListOfItemsMaker_Choices("values", values, { text = "Values" })
