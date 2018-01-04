@@ -26,9 +26,10 @@
 -- Modules --
 local common = require("s3_editor.Common")
 local editor_config = require("config.Editor")
+local editor_strings = require("config.EditorStrings")
 local grid = require("s3_editor.Grid")
 local grid_views = require("s3_editor.GridViews")
---local help = require("s3_editor.Help")
+local help = require("s3_editor.Help")
 
 -- Exports --
 local M = {}
@@ -55,32 +56,59 @@ local function Cell (event)
 	end
 end
 
+-- --
+local Choices
+
+-- --
+local HelpContext
+
 ---
 -- @pgroup view X
-function M.Load (_)
+function M.Load (view)
 	Grid = grid.NewGrid()
 
 	Grid:addEventListener("cell", Cell)
 	Grid:TouchCell(1, 1)
 
 	grid.Show(false)
+	
+	HelpContext = help.NewContext()
+	Choices = common.AddCommandsBar{
+		title = "Player commands", help_context = HelpContext,
+
+		"Mode:", { column = { "Start", "Move" }, column_width = 60 }, "m_mode", editor_strings("player_mode")
+	}
+
+	Choices.m_mode:addEventListener("item_change", function(event)
+		grid.SetDraggable(event.text == "Move")
+	end)
+
+	view:insert(Choices)
+	HelpContext:Register()
 end
 
 --- DOCMAYBE
 function M.Enter ()
 	grid.Show(Grid)
 
+	Choices.isVisible = true
+
+	HelpContext:Show(true)
 	-- Zoom factors?
 end
 
 --- DOCMAYBE
 function M.Exit ()
 	grid.Show(false)
+
+	Choices.isVisible = false
+
+	HelpContext:Show(false)
 end
 
 --- DOCMAYBE
 function M.Unload ()
-	Grid, StartPos = nil
+	Choices, Grid, HelpContext, StartPos = nil
 end
 
 -- Listen to events.

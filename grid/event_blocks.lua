@@ -27,6 +27,7 @@
 local ipairs = ipairs
 local max = math.max
 local min = math.min
+local pairs = pairs
 
 -- Modules --
 local common = require("s3_editor.Common")
@@ -280,7 +281,7 @@ local function ShowHide (event)
 end
 
 -- --
-local Options = { "Paint", "Edit", "Stretch", "Erase" }
+local Options = { "Paint", "Move", "Edit", "Stretch", "Erase" }
 
 -- --
 local HelpContext
@@ -317,6 +318,8 @@ function M.Load (view)
 		local label = event.text
 
 		if Option ~= label then
+			grid.SetDraggable(label == "Move")
+
 			--
 			if Option == "Edit" then
 				Dialog("close")
@@ -556,7 +559,13 @@ for k, v in pairs{
 			if block then
 				builds = events.BuildEntry(level, event_blocks, block.info, builds)
 
-				common.CopyInto(builds[#builds], block, "info")
+				local new = builds[#builds]
+
+				for k, v in pairs(block) do
+					if k ~= "info" then
+						new[k] = v
+					end
+				end
 			end
 		end
 

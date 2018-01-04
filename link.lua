@@ -147,7 +147,9 @@ function M.Load (view)
 	view:insert(Group)
 
 	local link_layer = display.newGroup()
-	local cont = common.NewScreenSizeContainer(Group, ItemGroup, Offset, { layers = { link_layer } })
+	local cont, drag = common.NewScreenSizeContainer(Group, ItemGroup, { layers = { link_layer }, offset = Offset })
+
+	drag:toBack()
 
 	HelpContext = help.NewContext()
 
