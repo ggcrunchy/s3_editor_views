@@ -29,7 +29,6 @@ local pairs = pairs
 local sort = table.sort
 
 -- Modules --
-local common_ui = require("s3_editor.CommonUI")
 local dialog = require("s3_editor.Dialog")
 local editor_strings = require("config.EditorStrings")
 local events = require("s3_editor.Events")
@@ -64,7 +63,7 @@ local function List (group, str, view, top, r, g, b, help_context)
 
 	local list, bottom = view:Load(group, layout.Below(text), layout.LeftOf(text), help_context)
 
-	common_ui.Frame(list, r, g, b)
+	list:Frame(r, g, b)
 
 	return list, bottom
 end

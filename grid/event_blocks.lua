@@ -30,6 +30,7 @@ local min = math.min
 local pairs = pairs
 
 -- Modules --
+local args = require("iterator_ops.args")
 local common = require("s3_editor.Common")
 local dialog = require("s3_editor.Dialog")
 local editor_strings = require("config.EditorStrings")
@@ -37,12 +38,12 @@ local event_blocks = require("s3_utils.event_blocks")
 local events = require("s3_editor.Events")
 local grid = require("s3_editor.Grid")
 local help = require("s3_editor.Help")
+local layout = require("corona_ui.utils.layout")
 local strings = require("tektite_core.var.strings")
 local touch = require("corona_ui.utils.touch")
 
 -- Corona globals --
 local display = display
-local native = native
 
 -- Exports --
 local M = {}
@@ -57,7 +58,10 @@ local Option
 local Blocks
 
 -- --
-local Tiles
+local Handles
+
+-- --
+local TileIDs
 
 -- --
 local Types
@@ -67,85 +71,6 @@ local Dialog = dialog.DialogWrapper(event_blocks.EditorEvent)
 
 -- --
 local CanFill, Name, ID
-
---
-local function FitTo (rep, ul, lr)
-	local x, y, w, h = ul.x, ul.y, ul.width, ul.height
-
-	if lr then
-		local x2, y2, w2, h2 = lr.x, lr.y, lr.width, lr.height
-		local xr, yb = max(x + w, x2 + w2), max(y + h, y2 + h2)
-
-		x, y = min(x - w, x2 - w2), min(y - h, y2 - h2)
-		w, h = xr - x, yb - y
-	end
-
-	rep.anchorX, rep.x, rep.width = 0, x, w
-	rep.anchorY, rep.y, rep.height = 0, y, h
-end
-
---
-local function SetHandle (handle, tile, scale)
-	handle.x = tile.x + scale * (tile.contentWidth - handle.width)
-	handle.y = tile.y + scale * (tile.contentHeight - handle.height)
-end
-
---
-local function GetCorners (block)
-	local ul = Tiles[strings.PairToKey(block.col1, block.row1)].image
-	local lr = Tiles[strings.PairToKey(block.col2, block.row2)].image
-
-	return ul, lr
-end
-
---
-local function CenterRect (group, block, ul, lr)
-	local x, w = (ul.x + lr.x) / 2, lr.x - ul.x + lr.contentWidth
-	local y, h = (ul.y + lr.y) / 2, lr.y - ul.y + lr.contentHeight
-
-	if not group then
-		group = block.selection.parent
-
-		block.selection:removeSelf()
-	end
-		
-	local selection = display.newRoundedRect(group, x, y, w, h, 15)
-
-	selection:setFillColor(.9, 0, 0, .08)
-	selection:setStrokeColor(1, 0, 0)
-	selection:toBack()
-
-	selection.strokeWidth = 5
-
-	block.selection = selection
-end
-
---
-local function UpdateHandles (block)
-	local ul, lr = GetCorners(block)
-
-	if ID then
-		CenterRect(nil, block, ul, lr)
-	else
-		SetHandle(block.m_ul, ul, -.5)
-		SetHandle(block.m_lr, lr, .5)
-	end
-
-	if not block.m_handle_group then
-		block.m_handle_group = display.newGroup()
-
-		ul.parent:insert(block.m_handle_group)
-	
-		block.m_handle_group:toBack()
-
-		block.m_handle_group:insert(block.m_ul)
-		block.m_handle_group:insert(block.m_lr)
-	end
-
-	if block.rep then
-		FitTo(block.rep, ul, lr)
-	end
-end
 
 -- --
 local Col1, Col2, Row1, Row2
@@ -159,15 +84,7 @@ end
 local function WipeBlock (block)
 	for row = block.row1, block.row2 do
 		for col = block.col1, block.col2 do
-			local key = strings.PairToKey(col, row)
-			local tile = Tiles[key]
-
-			if tile then
-				block.cache:insert(tile.image)
-				block.cache:insert(tile.id_str)
-
-				Tiles[key] = nil
-			end
+			TileIDs[strings.PairToKey(col, row)] = nil
 		end
 	end
 end
@@ -189,52 +106,53 @@ local function TouchBlock (block, name, old_name)
 end
 
 --
+local function AlignToBlock (block)
+	local rep, frame = block.rep, block.m_frame
+
+	layout.LeftAlignWith(block.m_ul, rep)
+	layout.TopAlignWith(block.m_ul, rep)
+	layout.RightAlignWith(block.m_lr, rep)
+	layout.BottomAlignWith(block.m_lr, rep)
+
+	frame.x, frame.width = rep.x - .5, rep.width - 3
+	frame.y, frame.height = rep.y - .5, rep.height - 3
+end
+
+--
 local function UpdateBlock (block)
 	WipeBlock(block)
 
 	block.col1, block.row1, block.col2, block.row2 = GetColsRows()
 
 	TouchBlock(block, "fill", Name)
-
-	common.Dirty()
+	AlignToBlock(block)
 end
 
 --
 local HandleTouch = touch.TouchHelperFunc(function(_, handle)
 	local block = Blocks[handle.m_id]
-	local hgroup = block.m_handle_group
 
-	CenterRect(hgroup.parent, block, GetCorners(block))
-
-	block.selection:setFillColor(.9, 0, 0, .08)
-	block.selection:setStrokeColor(1, 0, 0)
-	block.selection:toBack()
-
-	block.selection.strokeWidth = 5
-
-	hgroup.isVisible, Col1, Col2, Row1, Row2 = false, block.col1, block.col2, block.row1, block.row2
+	Col1, Col2, Row1, Row2 = block.col1, block.col2, block.row1, block.row2
+	block.oldc1, block.oldc2, block.oldr1, block.oldr2 = Col1, Col2, Row1, Row2
 end, function(event, handle)
 	CanFill, ID, Name = true, handle.m_id, handle.m_name
 
 	Grid:TouchXY(event.xStart, event.yStart, event.x, event.y)
 
 	UpdateBlock(Blocks[ID])
-	UpdateHandles(Blocks[ID])
 end, function(_, handle)
 	local block = Blocks[handle.m_id]
-	local hgroup = block.m_handle_group
 
-	block.selection:removeSelf()
+	CanFill, ID, Name = nil
 
-	hgroup.isVisible, block.selection, CanFill, ID, Name = true
-
-	UpdateHandles(block)
-	-- TODO: only dirty if end result has changed?
+	if block.col1 ~= block.oldc1 or block.row1 ~= block.oldr1 or block.col2 ~= block.oldc2 or block.row2 ~= block.oldr2 then
+		common.Dirty()
+	end
 end)
 
 --
 local function AddHandle (block, name, id)
-	local handle = display.newCircle(0, 0, 12)
+	local handle = display.newCircle(Handles, 0, 0, 12)
 
 	handle:addEventListener("touch", HandleTouch)
 	handle:setFillColor(1, 0, 0, .15)
@@ -249,36 +167,7 @@ local function AddHandle (block, name, id)
 end
 
 --
-local function ShowHandles (block, group, id)
-	if not block then
-		return
-	elseif group then
-		AddHandle(block, "ul", id)
-		AddHandle(block, "lr", id)
-
-		UpdateHandles(block)
-	else
-		block.m_ul:removeSelf()
-		block.m_lr:removeSelf()
-
-		display.remove(block.m_handle_group)
-
-		block.m_ul, block.m_lr, block.m_handle_group = nil
-	end
-end
-
---
 local Cell
-
---
-local function ShowHide (event)
-	local tile = Tiles[strings.PairToKey(event.col, event.row)]
-
-	if tile then
-		tile.image.isVisible = event.show and Option ~= "Stretch"
-		tile.id_str.isVisible = event.show
-	end
-end
 
 -- --
 local Options = { "Paint", "Move", "Edit", "Stretch", "Erase" }
@@ -289,10 +178,14 @@ local HelpContext
 ---
 -- @pgroup view X
 function M.Load (view)
-	Blocks, Tiles, Grid = {}, {}, grid.NewGrid()
+	Blocks, TileIDs, Grid = {}, {}, grid.NewGrid()
 
 	Grid:addEventListener("cell", Cell)
-	Grid:addEventListener("show", ShowHide)
+
+	Handles = display.newGroup()
+	Handles.isVisible = false
+
+	Grid:GetCanvas():insert(Handles)
 
 	--
 	Types = event_blocks.GetTypes()
@@ -320,30 +213,10 @@ function M.Load (view)
 		if Option ~= label then
 			grid.SetDraggable(label == "Move")
 
-			--
+			Handles.isVisible = label == "Stretch"
+
 			if Option == "Edit" then
 				Dialog("close")
-
-			--
-			elseif Option == "Stretch" then
-				grid.ShowOrHide(Tiles, function(tile, show)
-					tile.image.isVisible = show
-				end)
-
-				for _, block in ipairs(Blocks) do
-					ShowHandles(block)
-				end
-			end
-
-			--
-			if label == "Stretch" then
-				grid.ShowOrHide(Tiles, function(tile)
-					tile.image.isVisible = false
-				end)
-
-				for id, block in ipairs(Blocks) do
-					ShowHandles(block, view, id)
-				end
 			end
 
 			Option = label
@@ -358,72 +231,38 @@ function M.Load (view)
 end
 
 --
-local function GetCache (block, group)
-	local cache, n = block.cache
-
-	if not cache then
-		cache, n = display.newGroup(), 0
-
-		group:insert(cache)
-
-		block.cache, cache.isVisible = cache, false
-	else
-		n = cache.numChildren
-	end
-
-	return cache, n
-end
-
-local Fill = { type = "image" }
-
---
-local function AddImage (group, key, id, x, y, w, h, hide)
-	local block = Blocks[id]
-	local cache, n = GetCache(block, group)
-	local image = n > 0 and cache[n - 1] or display.newRect(group, 0, 0, w, h)
-
-	image.fill, Fill.filename = Fill, event_blocks.EditorEvent(block.info.type, "get_thumb_filename")
-
-	image.x, image.y, image.isVisible = x, y, not hide
--- TODO (make this a block thing? the rep?)
-	local id_str = n > 0 and cache[n] or display.newText(group, id, 0, 0, native.systemFontBold, 32)
-
-	id_str.x, id_str.y = image.x, image.y
-
-	id_str:setFillColor(0, 1, 0)
--- /TODO
-	if n > 0 then
-		group:insert(image)
-		group:insert(id_str)
-	end
-
-	Tiles[key] = { image = image, id_str = id_str, id = id }
-
-	common.Dirty()
-end
-
---
-local function AddRep (block, type)
+local function AddRep (group, block, type)
 	local tag = Dialog("get_tag", type)
 
 	if tag then
-		local tile = Tiles[strings.PairToKey(block.col1, block.row1)].image
-		local rep = display.newRect(tile.parent, 0, 0, 50, 50)--, 15) -- <- should be rounded?
-
-		FitTo(rep, tile)
+		local rep = display.newImage(group, event_blocks.EditorEvent(block.info.type, "get_thumb_filename"))
 
 		common.BindRepAndValuesWithTag(rep, block.info, tag, Dialog)
 
-		block.rep, rep.isVisible = rep, false
+		block.rep = rep
+
+		local frame = display.newRect(group, 0, 0, 1, 1)
+
+		frame:setFillColor(0, 0)
+		frame:setStrokeColor(0, 0, 1)
+
+		frame.strokeWidth = 3
+
+		block.m_frame = frame
+
+		AddHandle(block, "ul", ID)
+		AddHandle(block, "lr", ID)
+		TouchBlock(block, "fill")
+		AlignToBlock(block)
 	end
 end
 
 --
 local function CheckCol (col, rfrom, rto)
 	for row = rfrom, rto do
-		local tile = Tiles[strings.PairToKey(col, row)]
+		local id = TileIDs[strings.PairToKey(col, row)]
 
-		if tile and tile.id ~= ID then
+		if id and id ~= ID then
 			return
 		end
 	end
@@ -434,9 +273,9 @@ end
 --
 local function CheckRow (row, cfrom, cto)
 	for col = cfrom, cto do
-		local tile = Tiles[strings.PairToKey(col, row)]
+		local id = TileIDs[strings.PairToKey(col, row)]
 
-		if tile and tile.id ~= ID then
+		if id and id ~= ID then
 			return
 		end
 	end
@@ -459,51 +298,74 @@ end
 function Cell (event)
 	local col, row = event.col, event.row
 	local key = strings.PairToKey(col, row)
-	local tile = Tiles[key]
+	local id = TileIDs[key]
 
 	--
-	if Option == "Paint" then
-		if not tile then
-			local id, which = FindFreeID(), Choices.m_block:GetSelection("id")
+	if Name == "fill" then
+		id = ID or id
+		TileIDs[key] = id
 
-			Blocks[id] = { col1 = col, row1 = row, col2 = col, row2 = row, info = Dialog("new_values", Types[which], id) }
+		local block = Blocks[id]
+		local rep = block.rep
 
-			AddImage(event.target:GetCanvas(), key, id, event.x, event.y, event.target:GetCellDims())
-			AddRep(Blocks[id], Types[which])
+		if col == block.col1 and row == block.row1 then
+			rep.x, rep.y = event.x, event.y
+		end
+
+		if col == block.col2 and row == block.row2 then
+			local x1, x2 = rep.x, event.x
+			local y1, y2 = rep.y, event.y
+
+			rep.x, rep.y = (x1 + x2) / 2, (y1 + y2) / 2
+
+			local gw, gh = event.target:GetCellDims()
+
+			rep.width = (block.col2 - block.col1 + 1) * gw
+			rep.height = (block.row2 - block.row1 + 1) * gh
+		end
+		
+	elseif Option == "Paint" then
+		if not id then
+			ID = FindFreeID()
+
+			local btype = Types[Choices.m_block:GetSelection("id")]
+
+			Blocks[ID] = { col1 = col, row1 = row, col2 = col, row2 = row, info = Dialog("new_values", btype, ID) }
+
+			AddRep(event.target:GetCanvas(), Blocks[ID], btype)
+
+			ID = nil
 
 			common.Dirty()
 		end
 
 	--
 	elseif Option == "Edit" then
-		if tile then
-			Dialog("edit", Blocks[tile.id].info, Choices.parent, tile.id)
+		if id then
+			Dialog("edit", Blocks[id].info, Choices.parent, id)
 		else
 			Dialog("close")
 		end
 
 	--
 	elseif Option == "Erase" then
-		local id = tile and tile.id
+		local block = Blocks[id]
 
-		if id then
-			WipeBlock(Blocks[id])
+		if block then
+			WipeBlock(block)
 
-			common.BindRepAndValues(Blocks[id].rep, nil)
-			display.remove(Blocks[id].rep)
+			common.BindRepAndValues(block.rep, nil)
 
-			Blocks[id].cache:removeSelf()
+			block.rep:removeSelf()
+
+			for _, name in args.Args("m_frame", "m_ul", "m_lr", "rep") do
+				block[name]:removeSelf()
+			end
 
 			Blocks[id] = false
 
 			common.Dirty()
 		end
-
-	--
-	elseif Name == "fill" then
-		local w, h = event.target:GetCellDims()
-
-		AddImage(event.target:GetCanvas(), key, ID, event.x, event.y, w, h, true)
 
 	--
 	elseif CanFill then
@@ -526,12 +388,16 @@ function M.Enter ()
 	grid.Show(Grid)
 	common.ShowCurrent(Choices, Options)
 
+	Handles.isVisible = Option == "Stretch"
+
 	HelpContext:Show(true)
 end
 
 --- DOCMAYBE
 function M.Exit ()
 	Dialog("close")
+
+	Handles.isVisible = false
 
 	common.ShowCurrent(Choices, false)
 	grid.Show(false)
@@ -541,7 +407,7 @@ end
 
 --- DOCMAYBE
 function M.Unload ()
-	Grid, HelpContext, Option, Blocks, Tiles, Types = nil
+	Grid, Handles, HelpContext, Option, Blocks, TileIDs, Types = nil
 end
 
 --
@@ -600,8 +466,7 @@ for k, v in pairs{
 
 				Option, ID = "Stretch", id
 
-				TouchBlock(Blocks[#Blocks], "fill")
-				AddRep(Blocks[#Blocks], block.info.type)
+				AddRep(Grid:GetCanvas(), Blocks[#Blocks], block.info.type)
 
 				Option, ID = "Paint"
 
@@ -611,10 +476,6 @@ for k, v in pairs{
 			end
 		end
 
-		grid.ShowOrHide(Tiles, function(tile, show)
-			tile.id_str.isVisible = show
-			tile.image.isVisible = show
-		end)
 		grid.Show(false)
 	end,
 
@@ -647,7 +508,7 @@ for k, v in pairs{
 					if events.CheckForNameDups("event block", verify, names, block.info) then
 						return
 					else
-						event_blocks.EditorEvent(block.info.type, "verify", verify, block, block.rep)--Blocks, id) TODO: Is this okay?)
+						event_blocks.EditorEvent(block.info.type, "verify", verify, block, block.rep)
 					end
 				end
 			end
