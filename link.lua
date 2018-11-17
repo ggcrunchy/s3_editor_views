@@ -182,10 +182,10 @@ function M.Load (view)
 end
 
 -- --
-local NodeListIndex = 0
+local KnotListIndex = 0
 
 local function IntegrateLink (link, object, sub, is_source, index)
-	connections.AddLink(index or NodeListIndex, not is_source, link)
+	connections.AddLink(index or KnotListIndex, not is_source, link)
 
 	link.m_obj, link.m_sub = object, sub
 end
@@ -217,7 +217,7 @@ local function AddBox (group, w, h)
 	box.strokeWidth = 2
 
 	box.m_id, BoxID = BoxID, BoxID + 1
-	box.m_node_list_index = NodeListIndex
+	box.m_knot_list_index = KnotListIndex
 
 	return box
 end
@@ -496,12 +496,12 @@ local function AddPrimaryBox (group, tag_db, tag, object)
 	local ntext = AddNameText(bgroup, object)
 	local box = AddBox(bgroup, max(w, ntext.width) + 35, h + 30)
 
-	connections.AddNodeList(NodeListIndex)
+	connections.AddKnotList(KnotListIndex)
 
 	box.m_attachments = alist
 
 	--
-	NodeListIndex = NodeListIndex + 1
+	KnotListIndex = KnotListIndex + 1
 
 	ntext.y = box_layout.GetY1(box) + 10
 
@@ -541,7 +541,7 @@ local function RemoveDeadObjects ()
 	for _, state in objects.IterateRemovedObjects() do
 		local box, tag = state.m_box
 
-		connections.RemoveNodeList(box.m_node_list_index)
+		connections.RemoveKnotList(box.m_knot_list_index)
 
 		for j = 1, #(box.m_attachments or "") do
 			tag = RemoveAttachment(tag_db, box.m_attachments[j], tag)

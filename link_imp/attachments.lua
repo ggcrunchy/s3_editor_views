@@ -371,7 +371,7 @@ function M.Box (group, object, tag_db, tag, sub, is_source, set_style)
 			display.newText(agroup.fixed, ("#%i"):format(n), ibox.x, ibox.y, native.systemFontBold, 10)
 		end
 
-		IntegrateLink(link, object, instance, is_source, self.m_node_list_index)
+		IntegrateLink(link, object, instance, is_source, self.m_knot_list_index)
 	end
 
 	local instances = common.GetInstances(object)
