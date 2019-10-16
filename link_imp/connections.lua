@@ -172,5 +172,4 @@ function M.Unload ()
 	LinkGroup, KnotLists = nil
 end
 
--- Export the module.
 return M

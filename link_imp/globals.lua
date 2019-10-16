@@ -53,7 +53,6 @@ function M.Unload ()
 	Global = nil
 end
 
--- Listen to events.
 for k, v in pairs{
 	-- Build Level --
 	build_level = function(level)
@@ -73,5 +72,4 @@ for k, v in pairs{
 	Runtime:addEventListener(k, v)
 end
 
--- Export the module.
 return M

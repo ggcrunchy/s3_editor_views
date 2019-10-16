@@ -34,6 +34,10 @@ local help = require("s3_editor.Help")
 -- Exports --
 local M = {}
 
+--
+--
+--
+
 -- --
 local Grid
 
@@ -111,7 +115,6 @@ function M.Unload ()
 	Choices, Grid, HelpContext, StartPos = nil
 end
 
--- Listen to events.
 for k, v in pairs{
 	-- Load Level WIP --
 	load_level_wip = function(level)
@@ -148,5 +151,4 @@ for k, v in pairs{
 	Runtime:addEventListener(k, v)
 end
 
--- Export the module.
 return M

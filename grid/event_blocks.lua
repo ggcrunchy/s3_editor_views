@@ -48,6 +48,10 @@ local display = display
 -- Exports --
 local M = {}
 
+--
+--
+--
+
 -- --
 local Choices
 
@@ -415,7 +419,6 @@ local function NewBlock (block, info)
 	return { col1 = block.col1, row1 = block.row1, col2 = block.col2, row2 = block.row2, info = info }
 end
 
--- Listen to events.
 for k, v in pairs{
 	-- Build Level --
 	build_level = function(level)
@@ -518,5 +521,4 @@ for k, v in pairs{
 	Runtime:addEventListener(k, v)
 end
 
--- Export the module.
 return M

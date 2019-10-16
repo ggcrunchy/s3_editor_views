@@ -37,6 +37,10 @@ local triggers = require("s3_utils.triggers")
 -- Exports --
 local M = {}
 
+--
+--
+--
+
 -- --
 local Dialog = dialog.DialogWrapper(triggers.EditorEvent)
 
@@ -70,7 +74,6 @@ function M.Unload ()
 	GridView:Unload()
 end
 
--- Listen to events.
 for k, v in pairs{
 	-- Build Level --
 	build_level = function(level)
@@ -107,5 +110,4 @@ for k, v in pairs{
 	Runtime:addEventListener(k, v)
 end
 
--- Export the module.
 return M

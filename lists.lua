@@ -136,7 +136,6 @@ function M.ListOfItemsMaker (name, mod, params, name_func)
 		end
 	end
 
-	-- Listen to events.
 	for k, v in pairs{
 		-- Build Level --
 		build_level = function(level)
@@ -315,8 +314,6 @@ function M.ListOfItemsMaker_Choices (name, mod, params)
 	end)
 end
 
--- Cached module members.
 _ListOfItemsMaker_ = M.ListOfItemsMaker
 
--- Export the module.
 return M

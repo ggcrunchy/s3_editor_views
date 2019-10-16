@@ -37,6 +37,10 @@
 -- Exports --
 local M = {}
 
+--
+--
+--
+
 ---
 -- @pgroup view X
 function M.Load (view)
@@ -59,5 +63,4 @@ function M.Unload ()
 
 end
 
--- Export the module.
 return M

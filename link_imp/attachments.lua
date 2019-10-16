@@ -41,8 +41,6 @@ local touch = require("corona_ui.utils.touch")
 local display = display
 local native = native
 
--- Cached module references --
-
 -- Exports --
 local M = {}
 
@@ -410,5 +408,4 @@ function M.Unload ()
 	ListboxOpts = nil
 end
 
--- Export the module.
 return M

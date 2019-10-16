@@ -269,11 +269,9 @@ function M.UpdateWidth (box, w)
 	-- but could later shorten, too
 end
 
--- Cache module members.
 _Arrange_ = M.Arrange
 _GetLineWidth_ = M.GetLineWidth
 _GetY1_ = M.GetY1
 _LeftAndRight_ = M.LeftAndRight
 
--- Export the module.
 return M

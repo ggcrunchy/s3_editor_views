@@ -23,9 +23,6 @@
 -- [ MIT license: http://www.opensource.org/licenses/mit-license.php ]
 --
 
--- Exports --
-local M = {}
-
 -- Standard library imports --
 local pairs = pairs
 local ipairs = ipairs
@@ -36,6 +33,9 @@ local common = require("s3_editor.Common")
 
 -- Corona globals --
 local display = display
+
+-- Exports --
+local M = {}
 
 --
 --
@@ -136,7 +136,6 @@ function M.Unload ()
 	Tagged, ToRemove, ToSort = nil
 end
 
--- Listen to events.
 Runtime:addEventListener("set_object_positions", function()
 	for object, state in pairs(Tagged) do
 		if state then
@@ -163,5 +162,4 @@ Runtime:addEventListener("set_object_positions", function()
 	end
 end)
 
--- Export the module.
 return M
