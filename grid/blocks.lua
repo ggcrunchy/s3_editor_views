@@ -1,4 +1,4 @@
---- Event block editing components.
+--- Block editing components.
 
 --
 -- Permission is hereby granted, free of charge, to any person obtaining
@@ -31,10 +31,10 @@ local pairs = pairs
 
 -- Modules --
 local args = require("iterator_ops.args")
+local blocks = require("s3_utils.blocks")
 local common = require("s3_editor.Common")
 local dialog = require("s3_editor.Dialog")
 local editor_strings = require("config.EditorStrings")
-local event_blocks = require("s3_utils.event_blocks")
 local events = require("s3_editor.Events")
 local grid = require("s3_editor.Grid")
 local help = require("s3_editor.Help")
@@ -71,7 +71,7 @@ local TileIDs
 local Types
 
 -- --
-local Dialog = dialog.DialogWrapper(event_blocks.EditorEvent)
+local Dialog = dialog.DialogWrapper(blocks.EditorEvent)
 
 -- --
 local CanFill, Name, ID
@@ -192,10 +192,10 @@ function M.Load (view)
 	Grid:GetCanvas():insert(Handles)
 
 	--
-	Types = event_blocks.GetTypes()
+	Types = blocks.GetTypes()
 
 	--
-	local block_column, editor_event = {}, event_blocks.EditorEvent
+	local block_column, editor_event = {}, blocks.EditorEvent
 
 	for i, name in ipairs(Types) do
 		block_column[#block_column + 1] = { id = i, filename = editor_event(name, "get_thumb_filename") }
@@ -203,12 +203,12 @@ function M.Load (view)
 
 	HelpContext = help.NewContext()
 	Choices = common.AddCommandsBar{
-		title = "Event block commands", help_context = HelpContext,
+		title = "Block commands", help_context = HelpContext,
 
-		"Mode:", { column = Options, column_width = 60 }, "m_mode", editor_strings("event_block_mode"),
+		"Mode:", { column = Options, column_width = 60 }, "m_mode", editor_strings("block_mode"),
 		"Block:", {
 			column = block_column, column_width = 40, image_width = 20, image_height = 20
-		}, "m_block", editor_strings("event_block_cur")
+		}, "m_block", editor_strings("block_cur")
 	}
 
 	Choices.m_mode:addEventListener("item_change", function(event)
@@ -239,7 +239,7 @@ local function AddRep (group, block, type)
 	local tag = Dialog("get_tag", type)
 
 	if tag then
-		local rep = display.newImage(group, event_blocks.EditorEvent(block.info.type, "get_thumb_filename"))
+		local rep = display.newImage(group, blocks.EditorEvent(block.info.type, "get_thumb_filename"))
 
 		common.BindRepAndValuesWithTag(rep, block.info, tag, Dialog)
 
@@ -424,9 +424,9 @@ for k, v in pairs{
 	build_level = function(level)
 		local builds
 
-		for _, block in ipairs(level.event_blocks.blocks) do
+		for _, block in ipairs(level.blocks.blocks) do
 			if block then
-				builds = events.BuildEntry(level, event_blocks, block.info, builds)
+				builds = events.BuildEntry(level, blocks, block.info, builds)
 
 				local new = builds[#builds]
 
@@ -438,7 +438,7 @@ for k, v in pairs{
 			end
 		end
 
-		level.event_blocks = builds
+		level.blocks = builds
 	end,
 
 	-- Editor Event Message --
@@ -446,7 +446,7 @@ for k, v in pairs{
 		-- TODO: Needs fixing when reincorporated back into game!
 		local packet, verify = event.packet, event.verify
 
-		if packet.message == "target:event_block" then
+		if packet.message == "target:block" then
 			for _, block in ipairs(Blocks) do
 				if block and block.info.name == packet.target then
 					return
@@ -461,9 +461,9 @@ for k, v in pairs{
 	load_level_wip = function(level)
 		grid.Show(Grid)
 
-		level.event_blocks.version = nil
+		level.blocks.version = nil
 
-		for id, block in ipairs(level.event_blocks.blocks) do
+		for id, block in ipairs(level.blocks.blocks) do
 			if block then
 				Blocks[#Blocks + 1] = NewBlock(block, Dialog("new_values", block.info.type, id))
 
@@ -473,7 +473,7 @@ for k, v in pairs{
 
 				Option, ID = "Paint"
 
-				events.LoadValuesFromEntry(level, event_blocks, Blocks[#Blocks].info, block.info)
+				events.LoadValuesFromEntry(level, blocks, Blocks[#Blocks].info, block.info)
 			else
 				Blocks[#Blocks + 1] = false
 			end
@@ -484,9 +484,9 @@ for k, v in pairs{
 
 	-- Save Level WIP --
 	save_level_wip = function(level)
-		level.event_blocks = { blocks = {}, version = 1 }
+		local blocks = {}
 
-		local blocks = level.event_blocks.blocks
+		level.blocks = { blocks = blocks, version = 1 }
 
 		for _, block in ipairs(Blocks) do
 			local new_block = false
@@ -494,7 +494,7 @@ for k, v in pairs{
 			if block then
 				new_block = NewBlock(block, {})
 
-				events.SaveValuesIntoEntry(level, event_blocks, block.info, new_block.info)
+				events.SaveValuesIntoEntry(level, blocks, block.info, new_block.info)
 			end
 
 			blocks[#blocks + 1] = new_block
@@ -508,10 +508,10 @@ for k, v in pairs{
 
 			for _, block in ipairs(Blocks) do
 				if block then
-					if events.CheckForNameDups("event block", verify, names, block.info) then
+					if events.CheckForNameDups("block", verify, names, block.info) then
 						return
 					else
-						event_blocks.EditorEvent(block.info.type, "verify", verify, block, block.rep)
+						blocks.EditorEvent(block.info.type, "verify", verify, block, block.rep)
 					end
 				end
 			end
