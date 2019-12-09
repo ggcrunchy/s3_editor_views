@@ -93,12 +93,10 @@ function M.Unload ()
 end
 
 for k, v in pairs {
-	-- Build Level --
 	build_level = function(level)
 		level.settings = nil
 	end,
 
-	-- Load Level WIP --
 	load_level_wip = function(level)
 		for k, v in pairs(level.settings) do
 			if k == "show_layers" then -- TODO: good enough for now...
@@ -107,7 +105,6 @@ for k, v in pairs {
 		end
 	end,
 
-	-- Save Level WIP --
 	save_level_wip = function(level)
 		level.settings = {
 			show_layers = ShowLayers:IsChecked()

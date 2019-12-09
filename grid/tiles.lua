@@ -177,7 +177,6 @@ function M.Unload ()
 end
 
 for k, v in pairs{
-	-- Build Level --
 	build_level = function(level)
 		local ncols, nrows = common.GetDims()
 		local tiles = {}
@@ -197,7 +196,6 @@ for k, v in pairs{
 		level.tiles = { version = 1, values = tiles }
 	end,
 
-	-- Load Level WIP --
 	load_level_wip = function(level)
 		grid.Show(Grid)
 
@@ -217,7 +215,6 @@ for k, v in pairs{
 		grid.Show(false)
 	end,
 
-	-- Preprocess Level String --
 	preprocess_level_string = function(event)
 		local ppinfo = event.ppinfo
 
@@ -241,7 +238,6 @@ for k, v in pairs{
 		end
 	end,
 
-	-- Save Level WIP --
 	save_level_wip = function(level)
 		level.tiles = { version = 1 }
 		level.tileset = Choices.m_tileset:GetSelection("text")
@@ -251,14 +247,12 @@ for k, v in pairs{
 		end
 	end,
 
-	-- Tileset Details Changed --
 	tileset_details_changed = function()
 		if Choices then
 			Choices.m_tile:UpdateSheet(1, tilesets.GetSheet(), tilesets.GetShader())
 		end
 	end,
 
-	-- Verify Level WIP --
 	verify_level_wip = function(verify)
 		-- At least one shape, if winning condition = all dots removed
 		-- All dots reachable?

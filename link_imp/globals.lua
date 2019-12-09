@@ -54,17 +54,14 @@ function M.Unload ()
 end
 
 for k, v in pairs{
-	-- Build Level --
 	build_level = function(level)
 		level.global_events = events.BuildEntry(level, global_events, level.global_events, nil)[1]
 	end,
 
-	-- Load Level WIP --
 	load_level_wip = function(level)
 		events.LoadValuesFromEntry(level, global_events, Global, level.global_events)
 	end,
 
-	-- Save Level WIP --
 	save_level_wip = function(level)
 		level.global_events = events.SaveValuesIntoEntry(level, global_events, Global, { version = 1 })
 	end

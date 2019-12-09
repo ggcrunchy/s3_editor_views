@@ -420,7 +420,6 @@ local function NewBlock (block, info)
 end
 
 for k, v in pairs{
-	-- Build Level --
 	build_level = function(level)
 		local builds
 
@@ -441,7 +440,6 @@ for k, v in pairs{
 		level.blocks = builds
 	end,
 
-	-- Editor Event Message --
 	editor_event_message = function(event)
 		-- TODO: Needs fixing when reincorporated back into game!
 		local packet, verify = event.packet, event.verify
@@ -457,7 +455,6 @@ for k, v in pairs{
 		end
 	end,
 
-	-- Load Level WIP --
 	load_level_wip = function(level)
 		grid.Show(Grid)
 
@@ -482,7 +479,6 @@ for k, v in pairs{
 		grid.Show(false)
 	end,
 
-	-- Save Level WIP --
 	save_level_wip = function(level)
 		local blocks = {}
 
@@ -501,7 +497,6 @@ for k, v in pairs{
 		end
 	end,
 
-	-- Verify Level WIP --
 	verify_level_wip = function(verify)
 		if verify.pass == 1 then
 			local names = {}

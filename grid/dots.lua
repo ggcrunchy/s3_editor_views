@@ -70,7 +70,6 @@ function M.Unload ()
 end
 
 for k, v in pairs{
-	-- Build Level --
 	build_level = function(level)
 		local builds
 
@@ -83,17 +82,14 @@ for k, v in pairs{
 		level.dots = builds
 	end,
 
-	-- Load Level WIP --
 	load_level_wip = function(level)
 		events.LoadGroupOfValues_Grid(level, "dots", dots, GridView)
 	end,
 
-	-- Save Level WIP --
 	save_level_wip = function(level)
 		events.SaveGroupOfValues(level, "dots", dots, GridView)
 	end,
 
-	-- Verify Level WIP --
 	verify_level_wip = function(verify)
 		if verify.pass == 1 then
 			events.CheckNamesInValues("dot", verify, GridView)

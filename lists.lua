@@ -137,7 +137,6 @@ function M.ListOfItemsMaker (name, mod, params, name_func)
 	end
 
 	for k, v in pairs{
-		-- Build Level --
 		build_level = function(level)
 			--
 			local builds
@@ -153,7 +152,6 @@ function M.ListOfItemsMaker (name, mod, params, name_func)
 			end
 		end,
 
-		-- Load Level WIP --
 		load_level_wip = function(level)
 			events.LoadGroupOfValues_List(level, name, mod, ListView)
 
@@ -162,7 +160,6 @@ function M.ListOfItemsMaker (name, mod, params, name_func)
 			end
 		end,
 
-		-- Save Level WIP --
 		save_level_wip = function(level)
 			events.SaveGroupOfValues(level, name, mod, ListView)
 
@@ -171,7 +168,6 @@ function M.ListOfItemsMaker (name, mod, params, name_func)
 			end
 		end,
 
-		-- Verify Level WIP --
 		verify_level_wip = function(verify)
 			if verify.pass == 1 then
 				events.CheckNamesInValues(name, verify, ListView)

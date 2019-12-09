@@ -69,7 +69,6 @@ function M.Unload ()
 end
 
 for k, v in pairs{
-	-- Build Level --
 	build_level = function(level)
 		local builds
 
@@ -82,17 +81,14 @@ for k, v in pairs{
 		level.enemies = builds
 	end,
 
-	-- Load Scene --
 	load_level_wip = function(level)
 		events.LoadGroupOfValues_Grid(level, "enemies", enemies, GridView)
 	end,
 
-	-- Save Scene --
 	save_level_wip = function(level)
 		events.SaveGroupOfValues(level, "enemies", enemies, GridView)
 	end,
 
-	-- Verify Level WIP --
 	verify_level_wip = function(verify)
 		if verify.pass == 1 then
 			events.CheckNamesInValues("spawn point", verify, GridView)

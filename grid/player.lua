@@ -116,7 +116,6 @@ function M.Unload ()
 end
 
 for k, v in pairs{
-	-- Load Level WIP --
 	load_level_wip = function(level)
 		if level.player.col and level.player.row then
 			grid.Show(Grid)
@@ -127,7 +126,6 @@ for k, v in pairs{
 		end
 	end,
 
-	-- Save Level WIP --
 	save_level_wip = function(level)
 		level.player = { version = 1 }
 
@@ -137,7 +135,6 @@ for k, v in pairs{
 		end
 	end,
 
-	-- Verify Level WIP --
 	verify_level_wip = function(verify)
 		if verify.pass == 1 then
 			if not StartPos then
