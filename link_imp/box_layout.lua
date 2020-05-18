@@ -28,7 +28,7 @@ local max = math.max
 local min = math.min
 
 -- Modules --
-local layout = require("corona_ui.utils.layout")
+local layout = require("solar2d_ui.utils.layout")
 
 -- Corona globals --
 local display = display

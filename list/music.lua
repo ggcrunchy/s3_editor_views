@@ -24,11 +24,11 @@
 --
 
 -- Modules --
-local checkbox = require("corona_ui.widgets.checkbox")
-local editable = require("corona_ui.patterns.editable")
+local checkbox = require("solar2d_ui.widgets.checkbox")
+local editable = require("solar2d_ui.patterns.editable")
 local editor_strings = require("config.EditorStrings")
-local layout = require("corona_ui.utils.layout")
-local layout_dsl = require("corona_ui.utils.layout_dsl")
+local layout = require("solar2d_ui.utils.layout")
+local layout_dsl = require("solar2d_ui.utils.layout_dsl")
 local lists = require("s3_editor_views.lists")
 local music = require("s3_utils.music")
 

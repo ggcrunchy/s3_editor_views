@@ -36,7 +36,7 @@ local pairs = pairs
 -- Modules --
 local grid = require("tektite_core.array.grid")
 local morton = require("number_sequences.morton")
-local touch = require("corona_ui.utils.touch")
+local touch = require("solar2d_ui.utils.touch")
 
 -- Corona globals --
 local display = display

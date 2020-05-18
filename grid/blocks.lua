@@ -38,9 +38,9 @@ local editor_strings = require("config.EditorStrings")
 local events = require("s3_editor.Events")
 local grid = require("s3_editor.Grid")
 local help = require("s3_editor.Help")
-local layout = require("corona_ui.utils.layout")
+local layout = require("solar2d_ui.utils.layout")
 local strings = require("tektite_core.var.strings")
-local touch = require("corona_ui.utils.touch")
+local touch = require("solar2d_ui.utils.touch")
 
 -- Corona globals --
 local display = display

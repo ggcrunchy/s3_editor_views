@@ -32,7 +32,7 @@ local pairs = pairs
 -- Modules --
 local box_layout = require("s3_editor_views.link_imp.box_layout")
 local common = require("s3_editor.Common")
-local link_group = require("corona_ui.widgets.link_group")
+local link_group = require("solar2d_ui.widgets.link_group")
 local objects = require("s3_editor_views.link_imp.objects")
 
 --

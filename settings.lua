@@ -27,10 +27,10 @@
 local pairs = pairs
 
 -- Modules --
-local checkbox = require("corona_ui.widgets.checkbox")
+local checkbox = require("solar2d_ui.widgets.checkbox")
 local grid = require("s3_editor.Grid")
 local help = require("s3_editor.Help")
-local layout = require("corona_ui.utils.layout")
+local layout = require("solar2d_ui.utils.layout")
 
 -- Corona globals --
 local display = display

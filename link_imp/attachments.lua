@@ -30,12 +30,12 @@ local tonumber = tonumber
 -- Modules --
 local array_index = require("tektite_core.array.index")
 local box_layout = require("s3_editor_views.link_imp.box_layout")
-local button = require("corona_ui.widgets.button")
-local editable = require("corona_ui.patterns.editable")
+local button = require("solar2d_ui.widgets.button")
+local editable = require("solar2d_ui.patterns.editable")
 local common = require("s3_editor.Common")
-local layout = require("corona_ui.utils.layout")
-local table_view_patterns = require("corona_ui.patterns.table_view")
-local touch = require("corona_ui.utils.touch")
+local layout = require("solar2d_ui.utils.layout")
+local table_view_patterns = require("solar2d_ui.patterns.table_view")
+local touch = require("solar2d_ui.utils.touch")
 
 -- Corona globals --
 local display = display

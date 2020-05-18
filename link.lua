@@ -42,14 +42,14 @@ local args = require("iterator_ops.args")
 local attachments = require("s3_editor_views.link_imp.attachments")
 local box_layout = require("s3_editor_views.link_imp.box_layout")
 local cells = require("s3_editor_views.link_imp.cells")
-local color = require("corona_ui.utils.color")
+local color = require("solar2d_ui.utils.color")
 local common = require("s3_editor.Common")
 local connections = require("s3_editor_views.link_imp.connections")
 local editor_strings = require("config.EditorStrings")
 local globals = require("s3_editor_views.link_imp.globals")
 local help = require("s3_editor.Help")
 local objects = require("s3_editor_views.link_imp.objects")
-local touch = require("corona_ui.utils.touch")
+local touch = require("solar2d_ui.utils.touch")
 
 -- Corona globals --
 local display = display

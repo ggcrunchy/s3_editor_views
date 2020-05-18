@@ -33,12 +33,12 @@ local dialog = require("s3_editor.Dialog")
 local editor_strings = require("config.EditorStrings")
 local events = require("s3_editor.Events")
 local help = require("s3_editor.Help")
-local layout = require("corona_ui.utils.layout")
+local layout = require("solar2d_ui.utils.layout")
 local list_views = require("s3_editor.ListViews")
-local menu = require("corona_ui.widgets.menu")
+local menu = require("solar2d_ui.widgets.menu")
 local strings = require("tektite_core.var.strings")
 local table_funcs = require("tektite_core.table.funcs")
-local table_view_patterns = require("corona_ui.patterns.table_view")
+local table_view_patterns = require("solar2d_ui.patterns.table_view")
 
 -- Corona globals --
 local display = display
