@@ -32,7 +32,7 @@ local grid = require("s3_editor.Grid")
 local help = require("s3_editor.Help")
 local layout = require("solar2d_ui.utils.layout")
 
--- Corona globals --
+-- Solar2D globals --
 local display = display
 local native = native
 

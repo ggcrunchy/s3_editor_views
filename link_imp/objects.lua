@@ -31,7 +31,7 @@ local sort = table.sort
 -- Modules --
 local common = require("s3_editor.Common")
 
--- Corona globals --
+-- Solar2D globals --
 local display = display
 
 -- Exports --

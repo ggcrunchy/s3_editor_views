@@ -34,7 +34,7 @@ local help = require("s3_editor.Help")
 local strings = require("tektite_core.var.strings")
 local tilesets = require("s3_utils.tilesets")
 
--- Corona globals --
+-- Solar2D globals --
 local display = display
 
 -- Exports --

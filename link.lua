@@ -51,7 +51,7 @@ local help = require("s3_editor.Help")
 local objects = require("s3_editor_views.link_imp.objects")
 local touch = require("solar2d_ui.utils.touch")
 
--- Corona globals --
+-- Solar2D globals --
 local display = display
 local easing = easing
 local native = native

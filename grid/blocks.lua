@@ -42,7 +42,7 @@ local layout = require("solar2d_ui.utils.layout")
 local strings = require("tektite_core.var.strings")
 local touch = require("solar2d_ui.utils.touch")
 
--- Corona globals --
+-- Solar2D globals --
 local display = display
 
 -- Exports --

@@ -40,7 +40,7 @@ local strings = require("tektite_core.var.strings")
 local table_funcs = require("tektite_core.table.funcs")
 local table_view_patterns = require("solar2d_ui.patterns.table_view")
 
--- Corona globals --
+-- Solar2D globals --
 local display = display
 local native = native
 local Runtime = Runtime

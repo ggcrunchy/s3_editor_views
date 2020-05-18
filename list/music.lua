@@ -32,7 +32,7 @@ local layout_dsl = require("solar2d_ui.utils.layout_dsl")
 local lists = require("s3_editor_views.lists")
 local music = require("s3_utils.music")
 
--- Corona globals --
+-- Solar2D globals --
 local display = display
 local native = native
 

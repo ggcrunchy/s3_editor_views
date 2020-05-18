@@ -37,7 +37,7 @@ local layout = require("solar2d_ui.utils.layout")
 local table_view_patterns = require("solar2d_ui.patterns.table_view")
 local touch = require("solar2d_ui.utils.touch")
 
--- Corona globals --
+-- Solar2D globals --
 local display = display
 local native = native
 
